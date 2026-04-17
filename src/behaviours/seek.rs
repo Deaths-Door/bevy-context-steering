@@ -9,7 +9,7 @@ use super::*;
 )]
 #[require(SteeringContext)]
 pub struct Seek {
-    target: Vec3,
+    pub target: Vec3,
 }
 
 impl Seek {
@@ -19,42 +19,39 @@ impl Seek {
 }
 
 
+impl Seek {
+    pub(crate) fn steering_behaviour_update(mut query: ActiveAgentsQuery<BehaviourQueryData<Self>>) {
+        query
+            .par_iter_mut()
+            .for_each(|mut agent| {
+                let desired_direction = Self:: desired_direction(&agent);
+                agent.context.set_interest::<Self>(desired_direction);
+            });
+    }
+
+    pub(super) fn desired_direction<T:BehaviourData>(agent: &BehaviourQueryDataItem<'_, '_, T>) -> Vec3 {
+        let position = agent.transform.translation();
+        let target = agent.behaviour.target();
+        let desired_direction = target - position;
+        desired_direction
+    }
+}
+
 #[derive(QueryData)]
 #[query_data(mutable)]
 pub(crate) struct BehaviourQueryData<T: Component> {
     behaviour: &'static T,
     transform: &'static GlobalTransform,
-    context: &'static mut SteeringContext,
+    pub(crate) context: &'static mut SteeringContext,
 }
 
-pub(crate) trait BehaviourData {
+pub(crate) trait BehaviourData : Component {
     fn target(&self) -> Vec3;
-    fn apply(&self, context: &mut SteeringContext, desired_direction: Vec3);
 }
-
-pub(super) fn update_internal<T>(mut query: Query<BehaviourQueryData<T>, With<SteeringAgent>>)
-where
-    T: Component + BehaviourData,
-{
-    query.par_iter_mut().for_each(|mut item| {
-        let position = item.transform.translation();
-        let target = item.behaviour.target();
-        let desired_direction = target - position;
-        item.behaviour.apply(&mut item.context, desired_direction);
-    });
-}
-
 
 impl BehaviourData for Seek {
     fn target(&self) -> Vec3 {
         self.target
     }
-
-    fn apply(&self, context: &mut SteeringContext, desired_direction: Vec3) {
-        context.set_interest::<Self>(desired_direction);
-    }
 }
 
-pub(crate) fn update(query: Query<BehaviourQueryData<Seek>, With<SteeringAgent>>) {
-    update_internal(query);
-}

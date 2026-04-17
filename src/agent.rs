@@ -14,9 +14,9 @@ pub struct SteeringAgent {
 impl Default for SteeringAgent {
     fn default() -> Self {
         Self {
-            max_speed: 100.0,
-            max_force: Vec3::splat(100.0),
-            acceleration_wn: 8.0,
+            max_speed: 5.0,
+            max_force: Vec3::splat(50.0),
+            acceleration_wn: 10.0,
             neighbour_hood_radius: 10.0,
         }
     }

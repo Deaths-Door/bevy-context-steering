@@ -25,7 +25,12 @@ impl Flee {
             .par_iter_mut()
             .for_each(|mut agent| {
                 let desired_direction = Seek::desired_direction(&agent);
+
                 agent.context.set_danger::<Self>(desired_direction);
+            
+                // This prevents snapping to default direction (perpendicular to target) when using danger-only.
+                // By telling it to go directly opposite
+                agent.context.set_interest::<Self>(-desired_direction);
             });
     }
 }

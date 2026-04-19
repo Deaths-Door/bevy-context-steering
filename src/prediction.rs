@@ -38,6 +38,17 @@ impl EntityPrediction {
         let agent_direction = agent_velocity.normalize_or_zero();
         let target_direction = target_velocity.normalize_or_zero();
 
+        // I think this is correct for https://www.red3d.com/cwr/papers/1999/gdc99steer.pdf
+        /*
+        A more sophisticated estimator can be obtained by taking into account the
+        relative headings of pursuer and quarry, and whether the pursuer is generally ahead of,
+        behind, or to the side of, the quarry. These two metrics can be expressed in terms of simple
+        dot products (between unit forward vectors, and
+        between the quarry’s forward and the offset to the
+        pursuer’s position). Note that care must be taken
+        to reduce T (e.g to zero) when the pursuer finds
+        itself aligned with, and in front of, its quarry.
+        */
         let is_aligned = agent_direction.dot(target_direction) > self.align_threshold;
         let is_ahead = target_direction.dot(seperation.normalize_or_zero()) < self.ahead_threshold;
 

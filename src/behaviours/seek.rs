@@ -24,7 +24,7 @@ impl Seek {
         query
             .par_iter_mut()
             .for_each(|mut agent| {
-                let desired_direction = Self:: desired_direction(&agent);
+                let desired_direction = Self::desired_direction(&agent);
                 agent.context.set_interest::<Self>(desired_direction);
             });
     }

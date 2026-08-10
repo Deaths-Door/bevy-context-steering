@@ -4,6 +4,7 @@ use bevy::{
     time::TimeUpdateStrategy,
 };
 use bevy_context_steering::*;
+use bevy_many_relationships::ManyRelationshipsPlugin;
 use test_case::test_case;
 
 const N_FRAMES: usize = 30;
@@ -17,6 +18,7 @@ fn setup_app(apply: impl FnOnce(&mut App)) -> App {
         TransformPlugin,
         MeshPlugin,
         ScenePlugin,
+        ManyRelationshipsPlugin
     ));
 
     app.add_plugins((PhysicsPlugins::default(), SteeringPlugin));

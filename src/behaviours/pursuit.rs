@@ -23,9 +23,19 @@ impl Pursuit {
 
 impl Pursuit {
     pub(crate) fn steering_behaviour_update(
-        mut query: ActiveAgentsQuery<BehaviourQueryData<Self>>,
+        query: ActiveAgentsQuery<BehaviourQueryData<Self>>,
         target_query: Query<BehaviourTargetQueryData>,
     ) {
+        Self::steering_impl(query, target_query, |desired_direction, context| {
+            context.set_interest::<Self>(desired_direction);
+        });
+    }
+
+    pub(super) fn steering_impl<T: BehaviourData>(
+        mut query: ActiveAgentsQuery<BehaviourQueryData<T>>,
+        target_query: Query<BehaviourTargetQueryData>,
+        update: impl Fn(Vec3, &mut SteeringContext) + Sync,
+    ) -> () {
         query.par_iter_mut().for_each(|mut agent| {
             // Skip if the target entity no longer exists
             let Ok(target) = target_query.get(agent.behaviour.target()) else {
@@ -42,11 +52,11 @@ impl Pursuit {
                 return;
             };
 
-            agent.context.set_interest::<Self>(desired_direction);
+            update(desired_direction, &mut *agent.context);
         });
     }
 
-    pub(super) fn desired_direction<T: BehaviourData>(
+    fn desired_direction<T: BehaviourData>(
         agent: &BehaviourQueryDataItem<'_, '_, T>,
         target: &BehaviourTargetQueryDataItem,
     ) -> Option<Vec3> {

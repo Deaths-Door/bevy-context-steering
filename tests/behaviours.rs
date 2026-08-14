@@ -18,7 +18,7 @@ fn setup_app(apply: impl FnOnce(&mut App)) -> App {
         TransformPlugin,
         MeshPlugin,
         ScenePlugin,
-        ManyRelationshipsPlugin
+        ManyRelationshipsPlugin,
     ));
 
     app.add_plugins((PhysicsPlugins::default(), SteeringPlugin));
@@ -290,16 +290,13 @@ fn test_pursuit(agent_pos: Vec3, target_pos: Vec3, velocities: &[Vec3]) {
 // --- Edge / degenerate ---
 #[test_case(Vec3::ZERO, vec3(10.0, 0.0, 10.0), &[vec3(-1.0, 0.001, 0.0)]; "Evade - Near-Zero Y Velocity Component")]
 #[test_case(vec3(7.32, 0.0, -4.15), vec3(-3.5, 0.0, 9.88), &[vec3(-2.1, 0.0, 1.7)]; "Evade - Randomized Positions and Velocity")]
-
-// Weird 
+// Weird
 // Threat orbiting the agent (tangential velocity, never actually closing)
 #[test_case(Vec3::ZERO, vec3(10.0, 0.0, 0.0), &[vec3(0.0, 0.0, 10.0), vec3(-10.0, 0.0, 0.0), vec3(0.0, 0.0, -10.0), vec3(10.0, 0.0, 0.0)]; "Evade - Threat Orbiting Agent")]
-
 // Threat moving directly away — agent has no reason to flee hard, but shouldn't chase
 #[test_case(Vec3::ZERO, vec3(10.0, 0.0, 0.0), &[vec3(20.0, 0.0, 0.0)]; "Evade - Threat Sprinting Away")]
 // Threat is at the exact same position (zero separation — degenerate)
 #[test_case(Vec3::ZERO, Vec3::ZERO, &[vec3(-1.0, 0.0, 0.0)]; "Evade - Threat Spawns On Agent")]
-
 // Very high threat speed — prediction time collapses, agent should still not freeze
 #[test_case(Vec3::ZERO, vec3(10.0, 0.0, 0.0), &[vec3(-100.0, 0.0, 0.0)]; "Evade - Threat Extremely Fast Approach")]
 

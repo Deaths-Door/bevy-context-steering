@@ -10,7 +10,7 @@ mod utils;
 
 pub use avian3d;
 pub use bevy;
-pub use many_relationships as bevy_many_relationships;
+pub use bevy_many_relationships as many_relationships;
 
 pub use agent::*;
 pub use behaviours::*;
@@ -34,17 +34,17 @@ impl Plugin for SteeringPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(ManyRelationshipsPlugin);
 
-        app.add_observer(on_add_cluster_member);
-        app.add_observer(on_remove_cluster_member);
+        app.init_resource::<ClusterMap>();
+        app.add_observer(on_insert_cluster);
+        app.add_observer(on_discard_cluster);
 
-        
+        app.add_systems(FixedPreUpdate,update_cluster_data);
         let behaviour_update = (
             Seek::steering_behaviour_update,
             Flee::steering_behaviour_update,
             Pursuit::steering_behaviour_update,
             Evade::steering_behaviour_update,
-            /*behaviours::pursuit::update,
-            behaviours::evade::update,
+            /*
             behaviours::cohere::update,
             behaviours::scatter::update,
             behaviours::align::update,

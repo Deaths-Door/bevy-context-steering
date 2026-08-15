@@ -3,11 +3,12 @@ use super::*;
 /// Evade acts to steer the character away from another moving character
 #[derive(Component, Debug, Reflect)]
 #[component(
-    on_add = on_add_insert_into_steering_context::<Self>, 
-    on_remove = on_remove_insert_into_steering_context::<Self>
+    on_add = on_add_into_steering_context::<Self>, 
+    on_remove = on_remove_from_steering_context::<Self>
 )]
 #[require(SteeringContext)]
-pub struct Evade { pub target: Entity,
+pub struct Evade { 
+    pub target: Entity,
     pub prediction: EntityPrediction,
 }
 

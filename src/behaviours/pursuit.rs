@@ -3,8 +3,8 @@ use super::*;
 /// Pursuit acts to steer the character to another moving character
 #[derive(Component, Debug, Reflect)]
 #[component(
-    on_add = on_add_insert_into_steering_context::<Self>,
-    on_remove = on_remove_insert_into_steering_context::<Self>
+    on_add = on_add_into_steering_context::<Self>,
+    on_remove = on_remove_from_steering_context::<Self>
 )]
 #[require(SteeringContext)]
 pub struct Pursuit {

@@ -5,14 +5,24 @@ use super::*;
 pub trait ClusterEntityCommandsExt {
     /// Links this entity directly to the cluster identified by `ClusterId`.
     /// Handles dummy cluster creation automatically in O(1).
-    fn join_cluster(self, cluster_id: ClusterId);
+    fn enter_cluster(self, cluster_id: ClusterId);
 
     /// Unlinks this entity from the cluster identified by `ClusterId`.
-    fn leave_cluster(self, cluster_id: ClusterId);
+    fn exit_cluster(self, cluster_id: ClusterId);
 }
 
-impl<'w, 's, 'a> ClusterEntityCommandsExt for EntityCommands<'a> {
-    fn join_cluster(mut self, cluster_id: ClusterId) {
+impl<'a> ClusterEntityCommandsExt for EntityCommands<'a> {
+    fn enter_cluster(mut self, cluster_id: ClusterId) {
+        (&mut self).enter_cluster(cluster_id);
+    }
+
+    fn exit_cluster(mut self, cluster_id: ClusterId) {
+        (&mut self).exit_cluster(cluster_id);
+    }
+}
+
+impl<'a> ClusterEntityCommandsExt for &'_ mut EntityCommands<'a> {
+    fn enter_cluster(self, cluster_id: ClusterId) {
         let source_entity = self.id();
         self.commands().queue(move |world: &mut World| {
             let clusters = world.resource::<ClusterMap>();
@@ -31,7 +41,7 @@ impl<'w, 's, 'a> ClusterEntityCommandsExt for EntityCommands<'a> {
         });
     }
 
-    fn leave_cluster(mut self, cluster_id: ClusterId) {
+    fn exit_cluster(self, cluster_id: ClusterId) {
         let source_entity = self.id();
         self.commands().queue(move |world: &mut World| {
             let clusters = world.resource::<ClusterMap>();

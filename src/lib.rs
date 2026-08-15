@@ -44,9 +44,11 @@ impl Plugin for SteeringPlugin {
             Flee::steering_behaviour_update,
             Pursuit::steering_behaviour_update,
             Evade::steering_behaviour_update,
+
+            Cohere::steering_behaviour_update,
+            Scatter::steering_behaviour_update,
+
             /*
-            behaviours::cohere::update,
-            behaviours::scatter::update,
             behaviours::align::update,
             behaviours::seperate::update,
             behaviours::standoff::position::update, */

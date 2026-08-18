@@ -1,150 +1,280 @@
 use avian3d::prelude::*;
 use bevy::{
-    app::PanicHandlerPlugin, mesh::MeshPlugin, prelude::*, scene::ScenePlugin,
+    app::PanicHandlerPlugin,
+    ecs::{
+        query::{QueryData, QueryFilter},
+        system::SystemState,
+    },
+    mesh::MeshPlugin,
+    prelude::*,
+    scene::ScenePlugin,
     time::TimeUpdateStrategy,
 };
 use bevy_context_steering::*;
-use bevy_many_relationships::ManyRelationshipsPlugin;
 use test_case::test_case;
 
-const N_FRAMES: usize = 30;
-
-fn setup_app(apply: impl FnOnce(&mut App)) -> App {
-    let mut app = App::new();
-    app.add_plugins((
-        MinimalPlugins,
-        PanicHandlerPlugin,
-        AssetPlugin::default(),
-        TransformPlugin,
-        MeshPlugin,
-        ScenePlugin,
-        ManyRelationshipsPlugin,
-    ));
-
-    app.add_plugins((PhysicsPlugins::default(), SteeringPlugin));
-
-    app.insert_resource(Gravity::ZERO);
-    app.insert_resource(TimeUpdateStrategy::ManualDuration(
-        std::time::Duration::from_secs_f32(1.0 / 60.0),
-    ));
-
-    app.finish();
-    app.cleanup();
-
-    apply(&mut app);
-    loop_frames(&mut app);
-
-    app
-}
-
-fn loop_frames(app: &mut App) {
-    for _ in 0..N_FRAMES {
-        app.update();
+trait SteeringScenarioExt {
+    fn test() -> Self;
+    fn step_n(&mut self, frames: usize);
+    fn step(&mut self) {
+        self.step_n(30);
     }
+
+    fn spawn_agent(&mut self, with: impl FnOnce(EntityCommands<'_>)) -> Entity;
+
+    fn get<T: Component>(&mut self, entity: Entity) -> &T;
+    fn check_agent<D, F>(
+        &mut self,
+        on_each: impl Fn(<<D as QueryData>::ReadOnly as QueryData>::Item<'_, '_>),
+    ) where
+        D: QueryData + 'static,
+        F: QueryFilter + 'static;
 }
 
-fn spawn_agent<'a>(commands: &'a mut Commands) -> EntityCommands<'a> {
-    commands.spawn((
-        RigidBody::Dynamic,
-        Mass(1.0),
-        Collider::sphere(1.0),
-        SteeringAgent {
-            max_speed: 5.0,
-            max_force: Vec3::splat(50.0),
-            acceleration_wn: 15.0,
-            ..default()
-        },
-        // Crucial: Avian needs damping to stop the "wobble"
-        LinearDamping(1.0),
-        AngularDamping(1.0),
-    ))
+impl SteeringScenarioExt for App {
+    fn test() -> Self {
+        let mut app = App::new();
+        app.add_plugins((
+            MinimalPlugins,
+            PanicHandlerPlugin,
+            AssetPlugin::default(),
+            TransformPlugin,
+            MeshPlugin,
+            ScenePlugin,
+        ));
+
+        app.add_plugins((PhysicsPlugins::default(), SteeringPlugin));
+
+        app.insert_resource(Gravity::ZERO);
+        app.insert_resource(TimeUpdateStrategy::ManualDuration(
+            std::time::Duration::from_secs_f32(1.0 / 60.0),
+        ));
+
+        app.finish();
+        app.cleanup();
+
+        app
+    }
+
+    fn step_n(&mut self, count: usize) {
+        for _ in 0..count {
+            self.update();
+        }
+    }
+
+    fn spawn_agent(&mut self, with: impl FnOnce(EntityCommands<'_>)) -> Entity {
+        let mut commands = self.world_mut().commands();
+        let commands = commands.spawn((
+            RigidBody::Dynamic,
+            Mass(1.0),
+            Collider::sphere(COLLIDER_RADIUS),
+            SteeringAgent {
+                max_speed: 5.0,
+                max_force: Vec3::splat(50.0),
+                acceleration_wn: 15.0,
+                ..default()
+            },
+            // Crucial: Avian needs damping to stop the "wobble"
+            LinearDamping(1.0),
+            AngularDamping(1.0),
+        ));
+
+        let id = commands.id();
+        (with)(commands);
+
+        self.world_mut().flush();
+
+        id
+    }
+
+    fn get<T: Component>(&mut self, entity: Entity) -> &T {
+        self.world().get(entity).expect("Failed to get component")
+    }
+
+    fn check_agent<D, F>(
+        &mut self,
+        on_each: impl Fn(<<D as QueryData>::ReadOnly as QueryData>::Item<'_, '_>),
+    ) where
+        D: QueryData + 'static,
+        F: QueryFilter + 'static,
+    {
+        let mut system_state: SystemState<Query<D, (With<SteeringAgent>, F)>> =
+            SystemState::new(self.world_mut());
+
+        let value = system_state
+            .get_mut(self.world_mut())
+            .expect("Failed to run system");
+
+        for agent in value.iter() {
+            on_each(agent)
+        }
+    }
 }
 
 const ALIGNMENT_THRESHOLD: f32 = 0.97;
 
-#[test_case(vec3(10.0, 0.0, 0.0);"Seek 1")] // Pure X
-#[test_case(vec3(0.0, 15.0, 0.0);"Seek 2")] // Pure Y
-#[test_case(vec3(0.0, 0.0, 12.0);"Seek 3")] // Pure Z
-#[test_case(vec3(-10.0, 2.0, -5.0);"Seek 4")] // Off-axis Negative
-#[test_case(vec3(0.1, 10.0, 0.1);"Seek 5")] // Near-Pole
-#[test_case(vec3(-15.0, -15.0, 0.0);"Seek 6")] // Lower Quadrant
-#[test_case(vec3(1.0, 0.0, 100.0);"Seek 7")] // Extreme Z-Tilt
-#[test_case(vec3(-5.0, 0.001, 0.0);"Seek 8")] // Near-Axis
-#[test_case(vec3(7.32, -4.15, 9.88);"Seek 9")] // Randomized "Noise"
-fn test_seek(target_pos: Vec3) {
-    let mut agent_id = Entity::PLACEHOLDER;
-    let app = setup_app(|app| {
-        let mut commands = app.world_mut().commands();
+const COLLIDER_RADIUS: f32 = 1.0;
+const MOVEMENT_TOLERANCE: f32 = 2.0 * COLLIDER_RADIUS + 0.05;
 
-        let behaviour = Seek::new(target_pos.clone());
-        agent_id = spawn_agent(&mut commands).insert(behaviour).id();
-    });
-
-    let target_dir = target_pos.normalize();
-    let transform = app.world().get::<Transform>(agent_id).unwrap();
-    let velocity = app.world().get::<LinearVelocity>(agent_id).unwrap().0;
-
-    // 1. Check Velocity Alignment (The "Intent" check)
-    let velocity_dir = velocity.normalize_or_zero();
-    let alignment = velocity_dir.dot(target_dir);
-
+fn assert_alignment(alignment: f32) {
     assert!(
         alignment > ALIGNMENT_THRESHOLD,
-        "Velocity misaligned! Dot: {}",
-        alignment
-    );
-
-    // 2. Check Angular Drift (The "Result" check)
-    let current_pos = transform.translation;
-    let progress = current_pos.dot(target_dir);
-    let projected_point = target_dir * progress;
-    let drift = current_pos.distance(projected_point);
-    let drift_angle = (drift / progress).atan().to_degrees();
-
-    assert!(
-        drift_angle < 7.5,
-        "Agent veered off course by {} degrees",
-        drift_angle
-    );
+        "Agent velocity misaligned! Dot: {}, expected > {}",
+        alignment,
+        ALIGNMENT_THRESHOLD
+    )
 }
 
-#[test_case(vec3(10.0, 0.0, 0.0);"Flee 1")] // Pure X
-#[test_case(vec3(0.0, 15.0, 0.0);"Flee 2")] // Pure Y
-#[test_case(vec3(0.0, 0.0, 12.0);"Flee 3")] // Pure Z
-#[test_case(vec3(-10.0, 2.0, -5.0);"Flee 4")] // Off-axis Negative
-#[test_case(vec3(0.1, 10.0, 0.1);"Flee 5")] // Near-Pole
-#[test_case(vec3(-15.0, -15.0, 0.0);"Flee 6")] // Lower Quadrant
-#[test_case(vec3(1.0, 0.0, 100.0);"Flee 7")] // Extreme Z-Tilt
-#[test_case(vec3(-5.0, 0.001, 0.0);"Flee 8")] // Near-Axis
-#[test_case(vec3(7.32, -4.15, 9.88);"Flee 9")] // Randomized "Noise"
-fn test_flee(target_pos: Vec3) {
-    let mut agent_id = Entity::PLACEHOLDER;
-    let app = setup_app(|app| {
-        let mut commands = app.world_mut().commands();
+#[test_case(Vec3::X * 10.0, Falloff::None; "Seek 1 - Pure X (None)")]
+#[test_case(Vec3::Y * 15.0, Falloff::Linear { threshold: 20.0 }; "Seek 2 - Pure Y (Linear)")]
+#[test_case(Vec3::Z * 12.0, Falloff::Quadratic { threshold: 15.0 }; "Seek 3 - Pure Z (Quadratic)")]
+#[test_case(vec3(-10.0, 2.0, -5.0), Falloff::Cubic { threshold: 12.0 }; "Seek 4 - Off-axis Negative (Cubic)")]
+#[test_case(vec3(0.1, 10.0, 0.1), Falloff::SmoothStep { threshold: 10.0 }; "Seek 5 - Near-Pole (SmoothStep)")]
+#[test_case(vec3(-15.0, -15.0, 0.0), Falloff::SmootherStep { threshold: 25.0 }; "Seek 6 - Lower Quadrant (SmootherStep)")]
+#[test_case(vec3(1.0, 0.0, 100.0), Falloff::InverseSquare { threshold: 50.0 }; "Seek 7 - Extreme Z-Tilt (InverseSquare)")]
+#[test_case(vec3(-5.0, 0.001, 0.0), Falloff::Exponential { threshold: 10.0, exponent: 2.0 }; "Seek 8 - Near-Axis (Exponential)")]
+#[test_case(vec3(0.0, 0.0, 0.0), Falloff::Stop { threshold: 5.0 }; "Seek 9 - Already At Target (Stay In Place)")]
+#[test_case(vec3(7.32, -4.15, 9.88), Falloff::None; "Seek 10 - Randomized Noise (None)")]
+fn test_seek(target_pos: Vec3, falloff: Falloff) {
+    let mut app = App::test();
 
-        let behaviour = Flee::new(target_pos.clone());
-        agent_id = spawn_agent(&mut commands).insert(behaviour).id();
+    let agent_id = app.spawn_agent(|mut commands| {
+        commands.insert(Seek::new(target_pos).with_falloff(falloff.clone()));
     });
 
+    // 1. Capture Pre-Step State
+    let initial_pos = app.get::<Transform>(agent_id).translation;
+    let initial_dist = initial_pos.distance(target_pos);
+
+    let should_seek = {
+        // 1. Check if agent is already at the target location (distance ~ 0)
+        let is_already_at_target = initial_dist < f32::EPSILON;
+
+        // 2. Check if falloff is specifically a Stop variant that halts steering outside threshold
+        let is_stopped_by_falloff = match falloff {
+            Falloff::Stop { threshold } => initial_dist > threshold,
+            _ => false, // All other falloff curves (SmoothStep, Linear, InverseSquare, etc.) still seek!
+        };
+
+        // 3. Agent should seek ONLY if not already at target AND not hard-stopped by falloff
+        !is_already_at_target && !is_stopped_by_falloff
+    };
+
+    // 2. Step the simulation
+    app.step();
+
+    let current_pos = app.get::<Transform>(agent_id).translation;
+    let current_vel = **app.get::<LinearVelocity>(agent_id);
+
+    match should_seek {
+        true => {
+            let target_dir = (target_pos - initial_pos).normalize_or_zero();
+
+            // A. Alignment Check
+            let vel_dir = current_vel.normalize_or_zero();
+            let alignment = vel_dir.dot(target_dir);
+            assert_alignment(alignment);
+
+            // B. Distance Decreased
+            let new_dist = current_pos.distance(target_pos);
+            assert!(
+                new_dist < initial_dist,
+                "Agent failed to seek! Initial dist: {}, New dist: {}",
+                initial_dist,
+                new_dist
+            );
+
+            // C. Trajectory Drift Check (Safe against division by zero)
+            let progress = (current_pos - initial_pos).dot(target_dir);
+            if progress > f32::EPSILON {
+                let projected_point = initial_pos + target_dir * progress;
+                let drift = current_pos.distance(projected_point);
+                let drift_angle = (drift / progress).atan().to_degrees();
+
+                assert!(
+                    drift_angle < 7.5,
+                    "Agent veered off course by {} degrees",
+                    drift_angle
+                );
+            }
+        }
+        false => {
+            let pos_delta = current_pos.distance(initial_pos);
+            let vel_mag = current_vel.length();
+
+            assert!(
+                pos_delta < MOVEMENT_TOLERANCE,
+                "Agent moved when it should have stayed in place! Delta: {}",
+                pos_delta
+            );
+
+            assert!(
+                vel_mag < f32::EPSILON,
+                "Agent gained velocity when it should have stayed in place! Velocity: {}",
+                vel_mag
+            );
+        }
+    }
+}
+
+/*
+use bevy::math::vec3;
+
+#[test_case(vec3(10.0, 0.0, 0.0), Falloff::None, true; "Falloff None - Pure X")]
+#[test_case(vec3(10.0, 0.0, 0.0), Falloff::Linear { threshold: 20.0 }, true; "Linear inside threshold (10 < 20)")]
+#[test_case(vec3(10.0, 0.0, 0.0), Falloff::Linear { threshold: 5.0 }, false; "Linear outside threshold (10 > 5)")]
+#[test_case(vec3(0.0, 15.0, 0.0), Falloff::Quadratic { threshold: 30.0 }, true; "Quadratic inside threshold (15 < 30)")]
+#[test_case(vec3(0.0, 0.0, 12.0), Falloff::Cubic { threshold: 11.0 }, false; "Cubic at boundary (12 >= 12)")]
+#[test_case(vec3(-10.0, 2.0, -5.0), Falloff::SmoothStep { threshold: 50.0 }, true; "SmoothStep inside threshold (11.36 < 50)")]
+#[test_case(vec3(0.1, 10.0, 0.1), Falloff::SmootherStep { threshold: 20.0 }, true; "SmootherStep inside threshold (10.001 < 20)")]
+#[test_case(vec3(-15.0, -15.0, 0.0), Falloff::InverseSquare { threshold: 30.0 }, true; "InverseSquare inside threshold (21.21 < 30)")]
+#[test_case(vec3(1.0, 0.0, 100.0), Falloff::Exponential { threshold: 200.0, exponent: 2.0 }, true; "Exponential inside threshold (100.005 < 200)")]
+#[test_case(vec3(7.32, -4.15, 9.88), Falloff::Exponential { threshold: 10.0, exponent: 2.0 }, false; "Exponential outside threshold (12.98 > 10)")]
+fn test_flee(target_pos: Vec3, falloff: Falloff, should_flee: bool) {
+    let mut app = App::test();
+
+    let agent_id;
+    {
+        // Setup
+
+        let mut commands = app.world_mut().commands();
+
+        // Pass the falloff into your Flee constructor
+        let behaviour = Flee::new(target_pos).with_falloff(falloff.clone());
+        agent_id = spawn_agent(&mut commands).insert(behaviour).id();
+    }
+
     let velocity = app.world().get::<LinearVelocity>(agent_id).unwrap().0;
+    let speed = velocity.length();
 
-    let target_dir = -target_pos.normalize();
+    if should_flee {
+        // 1. Ensure speed/force is generated
+        assert!(
+            speed > 0.0,
+            "Agent should be fleeing, but velocity speed is 0.0! Falloff: {:?}",
+            falloff
+        );
 
-    // 1. Check Velocity Alignment (The "Intent" check)
-    let velocity_dir = velocity.normalize_or_zero();
-    let alignment = velocity_dir.dot(target_dir);
+        // 2. Alignment Check
+        let target_dir = -target_pos.normalize();
+        let velocity_dir = velocity.normalize_or_zero();
+        let alignment = velocity_dir.dot(target_dir);
 
-    assert!(
-        alignment > ALIGNMENT_THRESHOLD,
-        "Agent is not fleeing in the correct direction! Alignment: {}, Velocity: {:?}",
-        alignment,
-        velocity
-    );
-    assert!(
-        alignment > ALIGNMENT_THRESHOLD,
-        "Velocity misaligned! Dot: {}",
-        alignment
-    );
+        assert!(
+            alignment > ALIGNMENT_THRESHOLD,
+            "Agent is not fleeing in the correct direction! Alignment: {}, Velocity: {:?}, Falloff: {:?}",
+            alignment,
+            velocity,
+            falloff
+        );
+    } else {
+        // Outside threshold, force should be 0.0
+        assert_eq!(
+            speed, 0.0,
+            "Agent should NOT be fleeing outside falloff threshold! Speed: {}, Falloff: {:?}",
+            speed, falloff
+        );
+    }
 }
 
 // --- Stationary target ---
@@ -394,3 +524,39 @@ fn test_evade(agent_pos: Vec3, threat_pos: Vec3, velocities: &[Vec3]) {
         }
     }
 }
+
+/// Helper function to spawn cluster member entities that establish a center of mass.
+fn spawn_cluster_members(
+    commands: &mut Commands,
+    cluster_id: ClusterId,
+    positions: impl Iterator<Item = Vec3>,
+) {
+    positions.for_each(|pos| {
+        let id = commands
+            .spawn((
+                Transform::from_translation(pos),
+                RigidBody::Dynamic,
+                Mass(1.0),
+                Collider::sphere(1.0),
+            ))
+            .id();
+        commands.entity(id).enter_cluster(cluster_id);
+    });
+}
+
+fn setup_clusters(
+    cluster_members: impl Iterator<Item = (ClusterId, impl Iterator<Item = Vec3>)>,
+    using_agent: impl FnOnce(EntityCommands),
+) -> App {
+    setup_app(|app| {
+        let mut commands = app.world_mut().commands();
+
+        for (cluster_id, member_positions) in cluster_members {
+            spawn_cluster_members(&mut commands, cluster_id, member_positions);
+        }
+        let agent_cmd = spawn_agent(&mut commands);
+        (using_agent)(agent_cmd)
+    })
+}
+//TODO: test cohere, scatter;
+ */

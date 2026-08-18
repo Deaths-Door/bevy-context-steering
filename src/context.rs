@@ -119,6 +119,11 @@ impl SteeringBehaviour {
         }
     }
 
+    pub fn clear_interest(&mut self) {
+        for Weight { interest, .. } in self.field.iter_mut() {
+            *interest = 0.0;
+        }
+    }
     pub const fn set_weight(&mut self, weight: f32) {
         self.weight = weight;
     }
@@ -160,6 +165,9 @@ impl SteeringContext {
 
     pub fn set_danger<K: 'static>(&mut self, dir: Vec3) -> bool {
         self.get_mut::<K>().map(|v| v.set_danger(dir)).is_some()
+    }
+    pub fn clear_interest<K: 'static>(&mut self) -> bool {
+        self.get_mut::<K>().map(|v| v.clear_interest()).is_some()
     }
 }
 

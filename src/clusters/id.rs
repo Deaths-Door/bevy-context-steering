@@ -1,3 +1,7 @@
+use std::hash::BuildHasher;
+
+use bevy::platform::hash::FixedHasher;
+
 use super::*;
 
 /// A unique identifier for a logical group of entities.
@@ -6,7 +10,7 @@ pub struct ClusterId(u64);
 
 impl ClusterId {
     pub fn new<T: Hash>(value: T) -> Self {
-        let mut state = DefaultHasher::default();
+        let mut state = FixedHasher::default().build_hasher();
         value.hash(&mut state);
         Self(state.finish())
     }

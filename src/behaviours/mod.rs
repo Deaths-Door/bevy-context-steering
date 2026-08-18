@@ -1,3 +1,5 @@
+mod falloff;
+
 mod evade;
 mod pursuit;
 
@@ -9,11 +11,13 @@ mod scatter;
 
 use super::*;
 
+pub use falloff::*;
+
 pub use flee::*;
 pub use seek::*;
 
-pub use pursuit::*;
 pub use evade::*;
+pub use pursuit::*;
 
-pub use scatter::*;
 pub use cohere::*;
+pub use scatter::*;

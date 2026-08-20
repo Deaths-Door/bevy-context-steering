@@ -217,6 +217,100 @@ fn test_seek(target_pos: Vec3, falloff: Falloff) {
     }
 }
 
+#[test_case(vec3(10.0, 0.0, 0.0), Falloff::None; "Flee 1 - Basic Flee (No Falloff)")]
+#[test_case(vec3(0.0, 0.0, 10.0), Falloff::None; "Flee 2 - Basic Flee Z Axis")]
+#[test_case(vec3(5.0, 0.0, 5.0), Falloff::Linear { threshold: 10.0 }; "Flee 3 - Linear Falloff Within Radius")]
+#[test_case(vec3(5.0, 0.0, 5.0), Falloff::SmoothStep { threshold: 10.0 }; "Flee 4 - SmoothStep Falloff Within Radius")]
+#[test_case(vec3(5.0, 0.0, 5.0), Falloff::InverseSquare { threshold: 10.0 }; "Flee 5 - InverseSquare Falloff Within Radius")]
+#[test_case(vec3(100.0, 0.0, 0.0), Falloff::Stop { threshold: 5.0 }; "Flee 6 - Outside Stop Threshold (No Reaction)")]
+#[test_case(vec3(2.0, 0.0, 0.0), Falloff::Stop { threshold: 5.0 }; "Flee 7 - Inside Stop Threshold (Flee)")]
+#[test_case(vec3(3.0, 4.0, 0.0), Falloff::Linear { threshold: 10.0 }; "Flee 8 - Diagonal Direction")]
+#[test_case(vec3(0.0, 0.0, 0.0), Falloff::Stop { threshold: 5.0 }; "Flee 9 - Already At Target (Stay In Place)")]
+fn test_flee(target_pos: Vec3, falloff: Falloff) {
+    let mut app = App::test();
+
+    let agent_id = app.spawn_agent(|mut commands| {
+        commands.insert(Flee::new(target_pos).with_falloff(falloff.clone()));
+    });
+
+    // 1. Capture Pre-Step State
+    let initial_pos = app.get::<Transform>(agent_id).translation;
+    let initial_dist = initial_pos.distance(target_pos);
+
+    let should_flee = {
+        // 1. Check if agent is already at the target location (distance ~ 0).
+        //    Direction away from target is undefined at zero distance.
+        let is_already_at_target = initial_dist < f32::EPSILON;
+
+        // 2. Check if falloff is specifically a Stop variant that halts steering
+        //    outside the threshold (i.e. threat too far away to react to).
+        let is_stopped_by_falloff = match falloff {
+            Falloff::Stop { threshold } => initial_dist > threshold,
+            _ => false, // All other falloff curves still flee!
+        };
+
+        // 3. Agent should flee ONLY if not already at target AND not hard-stopped by falloff
+        !is_already_at_target && !is_stopped_by_falloff
+    };
+
+    // 2. Step the simulation
+    app.step();
+
+    let current_pos = app.get::<Transform>(agent_id).translation;
+    let current_vel = **app.get::<LinearVelocity>(agent_id);
+
+    match should_flee {
+        true => {
+            // Flee direction is AWAY from target — opposite of seek.
+            let target_dir = (initial_pos - target_pos).normalize_or_zero();
+
+            // A. Alignment Check
+            let vel_dir = current_vel.normalize_or_zero();
+            let alignment = vel_dir.dot(target_dir);
+            assert_alignment(alignment);
+
+            // B. Distance Increased (fleeing moves AWAY, so distance grows)
+            let new_dist = current_pos.distance(target_pos);
+            assert!(
+                new_dist > initial_dist,
+                "Agent failed to flee! Initial dist: {}, New dist: {}",
+                initial_dist,
+                new_dist
+            );
+
+            // C. Trajectory Drift Check (Safe against division by zero)
+            let progress = (current_pos - initial_pos).dot(target_dir);
+            if progress > f32::EPSILON {
+                let projected_point = initial_pos + target_dir * progress;
+                let drift = current_pos.distance(projected_point);
+                let drift_angle = (drift / progress).atan().to_degrees();
+
+                assert!(
+                    drift_angle < 7.5,
+                    "Agent veered off course by {} degrees",
+                    drift_angle
+                );
+            }
+        }
+        false => {
+            let pos_delta = current_pos.distance(initial_pos);
+            let vel_mag = current_vel.length();
+
+            assert!(
+                pos_delta < MOVEMENT_TOLERANCE,
+                "Agent moved when it should have stayed in place! Delta: {}",
+                pos_delta
+            );
+
+            assert!(
+                vel_mag < f32::EPSILON,
+                "Agent gained velocity when it should have stayed in place! Velocity: {}",
+                vel_mag
+            );
+        }
+    }
+}
+
 /*
 use bevy::math::vec3;
 

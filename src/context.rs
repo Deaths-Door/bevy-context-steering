@@ -1,11 +1,10 @@
 use std::{any::TypeId, f32::consts::PI, sync::LazyLock};
 
+use super::*;
 use bevy::{
     math::ops::{cos, sin},
     platform::collections::HashMap,
 };
-
-use super::*;
 
 const SAMPLE_SIZE: usize = 128;
 pub(crate) static DIRECTIONS: LazyLock<[Vec3; SAMPLE_SIZE]> = LazyLock::new(|| {
@@ -179,10 +178,22 @@ impl SteeringContext {
 
     pub(crate) fn update_resultant_direction(&mut self) {
         // Find interest considering danger
-        let masks = into_masked_interest(self.resultant_field.iter());
+        let field_iter = self.resultant_field.iter();
+
+        // Nothing to react to at all — stay put, don't hand off to interpolate,
+        // which always returns a unit vector even when weights sum to ~0.
+        let is_clean = field_iter.clone().all(|w| w.interest <= f32::EPSILON && w.danger <= f32::EPSILON);
+
+        if is_clean {
+            self.resultant_direction = Vec3::ZERO;
+            return;
+        }
+
+        let masks = into_masked_interest(field_iter);
 
         // Find the slot index with the highest remaining interest.
-        let Some((resultant_slot, _)) = masks.enumerate().max_by(|(_, a), (_, b)| a.total_cmp(b))
+        let Some((resultant_slot, _)) =
+            masks.enumerate().max_by(|(_, a), (_, b)| a.total_cmp(b))
         else {
             unreachable!()
         };

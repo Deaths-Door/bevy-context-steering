@@ -11,7 +11,7 @@ use super::*;
 ///
 /// ```rust
 /// use bevy::prelude::*;
-
+/// use bevy_context_steering::{Seek,Falloff};
 /// // Create a seek behavior with smoothstep falloff within 20 units
 /// let seek = Seek::new(Vec3::new(10.0, 0.0, 0.0))
 ///     .with_falloff(Falloff::SmoothStep { threshold: 20.0 });
@@ -55,7 +55,7 @@ impl Seek {
 
                 let distance = agent.transform.translation().distance(agent.behaviour.target);
 
-                // TODO:fix this
+                // TODO: remvoe this since this doesnt help
                 if distance.squared() <= f32::EPSILON {
                     agent.context.clear_interest::<Self>();
                 } else {

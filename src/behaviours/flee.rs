@@ -8,6 +8,8 @@ use super::*;
 /// # Examples
 ///
 /// ```rust
+/// use bevy_context_steering::{Flee,Falloff};
+/// use bevy::prelude::Vec3;
 /// // Create a flee behavior with linear falloff within 15 units
 /// let flee = Flee::new(Vec3::new(10.0, 0.0, 0.0))
 ///     .with_falloff(Falloff::Linear { threshold: 15.0 });

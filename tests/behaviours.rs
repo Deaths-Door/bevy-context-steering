@@ -1,13 +1,6 @@
 use avian3d::prelude::*;
 use bevy::{
-    app::PanicHandlerPlugin,
-    ecs::{
-        query::{QueryData, QueryFilter},
-        system::SystemState,
-    },
-    mesh::MeshPlugin,
-    prelude::*,
-    scene::ScenePlugin,
+    app::PanicHandlerPlugin, mesh::MeshPlugin, prelude::*, scene::ScenePlugin,
     time::TimeUpdateStrategy,
 };
 use bevy_context_steering::*;
@@ -23,12 +16,6 @@ trait SteeringScenarioExt {
     fn spawn_agent(&mut self, with: impl FnOnce(EntityCommands<'_>)) -> Entity;
 
     fn get<T: Component>(&mut self, entity: Entity) -> &T;
-    fn check_agent<D, F>(
-        &mut self,
-        on_each: impl Fn(<<D as QueryData>::ReadOnly as QueryData>::Item<'_, '_>),
-    ) where
-        D: QueryData + 'static,
-        F: QueryFilter + 'static;
 }
 
 impl SteeringScenarioExt for App {
@@ -89,25 +76,6 @@ impl SteeringScenarioExt for App {
 
     fn get<T: Component>(&mut self, entity: Entity) -> &T {
         self.world().get(entity).expect("Failed to get component")
-    }
-
-    fn check_agent<D, F>(
-        &mut self,
-        on_each: impl Fn(<<D as QueryData>::ReadOnly as QueryData>::Item<'_, '_>),
-    ) where
-        D: QueryData + 'static,
-        F: QueryFilter + 'static,
-    {
-        let mut system_state: SystemState<Query<D, (With<SteeringAgent>, F)>> =
-            SystemState::new(self.world_mut());
-
-        let value = system_state
-            .get_mut(self.world_mut())
-            .expect("Failed to run system");
-
-        for agent in value.iter() {
-            on_each(agent)
-        }
     }
 }
 
@@ -309,7 +277,7 @@ fn test_pursuit(agent_pos: Vec3, target_pos: Vec3, velocities: &[Vec3]) {
     let mut app = App::test();
 
     let target_id = app.spawn_agent(|mut commands| {
-        commands.insert((Transform::from_translation(target_pos)));
+        commands.insert(Transform::from_translation(target_pos));
     });
 
     let agent_id = app.spawn_agent(|mut commands| {
@@ -428,7 +396,7 @@ fn test_evade(agent_pos: Vec3, threat_pos: Vec3, velocities: &[Vec3]) {
     let mut app = App::test();
 
     let threat_id = app.spawn_agent(|mut commands| {
-        commands.insert((Transform::from_translation(threat_pos)));
+        commands.insert(Transform::from_translation(threat_pos));
     });
 
     let agent_id = app.spawn_agent(|mut commands| {
@@ -508,4 +476,68 @@ fn test_evade(agent_pos: Vec3, threat_pos: Vec3, velocities: &[Vec3]) {
             );
         }
     }
+}
+
+#[test_case(vec3(10.0, 0.0, 0.0); "Brake - Pure X Velocity")]
+#[test_case(vec3(-5.0, 2.5, 12.0); "Brake - Arbitrary 3D Velocity")]
+fn test_brake(initial_velocity: Vec3) {
+    let mut app = App::test();
+
+    let agent_id = app.spawn_agent(|mut commands| {
+        commands.insert((LinearVelocity(initial_velocity), Brake));
+    });
+
+    app.step();
+    app.step();
+    app.step();
+
+    let agent_velocity = app.world().get::<LinearVelocity>(agent_id).unwrap();
+
+    // Asserts that braking actively reduces/opposes initial linear velocity
+    assert!(
+        agent_velocity.length() < initial_velocity.length(),
+        "Brake should reduce agent's linear velocity magnitude"
+    );
+}
+
+#[test_case(vec3(15.0, 0.0, 0.0), vec3(0.0, 0.0, 0.0); "Throttle - Accelerate from Stationary")]
+#[test_case(vec3(5.0, 0.0, 5.0), vec3(10.0, 0.0, 0.0); "Throttle - Match Moving Target Velocity")]
+fn test_throttle(target_velocity: Vec3, agent_initial_velocity: Vec3) {
+    let mut app = App::test();
+
+    let target_id = app.spawn_agent(|mut commands| {
+        commands.insert(LinearVelocity(target_velocity));
+    });
+
+    let agent_id = app.spawn_agent(|mut commands| {
+        commands.insert((
+            LinearVelocity(agent_initial_velocity),
+            Throttle::new(target_id),
+        ));
+    });
+
+    app.step();
+    app.step();
+    app.step();
+    app.step();
+
+    let agent_velocity = **app.world().get::<LinearVelocity>(agent_id).unwrap();
+
+    // 1. Verify direction matches (dot product close to 1.0)
+    if target_velocity.length_squared() > 0.001 {
+        let dir_similarity = agent_velocity.normalize().dot(target_velocity.normalize());
+        assert!(
+            dir_similarity > 0.9,
+            "Expected agent velocity direction to align with target velocity. Dot product: {dir_similarity}"
+        );
+    }
+
+    // 2. Verify agent accelerated significantly toward target speed
+    let speed_diff = (agent_velocity.length() - target_velocity.length()).abs();
+    assert!(
+        speed_diff < 1.0,
+        "Expected agent speed to approach target speed ({}), but got {}",
+        target_velocity.length(),
+        agent_velocity.length()
+    );
 }

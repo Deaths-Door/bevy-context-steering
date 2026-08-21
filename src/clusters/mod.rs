@@ -1,16 +1,15 @@
-mod id;
-mod relations;
-mod map;
 mod commands;
 mod data;
+mod id;
+mod map;
+mod relations;
 mod weight;
 
-pub use id::*;
-pub use relations::*;
-pub use map::*;
 pub use commands::*;
 pub use data::*;
+pub use id::*;
+pub use map::*;
+pub use relations::*;
 pub use weight::*;
 
 use super::*;
-use std::hash::{DefaultHasher, Hash, Hasher};

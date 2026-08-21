@@ -1,4 +1,4 @@
-use std::hash::BuildHasher;
+use std::hash::{BuildHasher, Hash, Hasher};
 
 use bevy::platform::hash::FixedHasher;
 

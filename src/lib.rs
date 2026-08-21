@@ -39,11 +39,16 @@ impl Plugin for SteeringPlugin {
         app.add_observer(on_discard_cluster);
 
         app.add_systems(FixedPreUpdate,update_cluster_data);
+        
         let behaviour_update = (
             Seek::steering_behaviour_update,
             Flee::steering_behaviour_update,
+
             Pursuit::steering_behaviour_update,
             Evade::steering_behaviour_update,
+
+            Brake::steering_behaviour_update,
+            Throttle::steering_behaviour_update,
 
             Cohere::steering_behaviour_update,
             Scatter::steering_behaviour_update,

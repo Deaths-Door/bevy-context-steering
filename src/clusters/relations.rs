@@ -1,5 +1,3 @@
-use bevy_many_relationships::{ManyRelatedEntityCommands, OnManyRelationshipAdded};
-
 use super::*;
 
 // 2. Relationship edge payload managed by bevy_many_relationships

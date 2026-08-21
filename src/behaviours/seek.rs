@@ -2,19 +2,29 @@ use bevy::math::FloatPow;
 
 use super::*;
 
-/// Steering behavior that accelerates an agent toward a target position in global space.
+/// Steering behavior that accelerates an agent toward a target position, line, or plane.
 ///
-/// When active, `Seek` calculates an attractive vector pointed directly toward [`Self::target`].
-/// The intensity of this force decays over distance according to the configured [`Falloff`].
+/// `Seek` calculates an attractive steering vector toward a spatial target. By configuring 
+/// [`Self::direction`], `Seek` unifies traditional **Point Seeking** (with falloff aka **Arrive** ), and **Line/Rail Constraints** 
+///
+/// - **Point Seek** (`direction == Vec3::ZERO`): Pulls the agent toward `target` in 3D space.
+/// - **Line / Rail Seek** (`direction == unit vector`): Constrains the agent to an arbitrary 3D line. 
+///   Pull forces act purely perpendicular to `direction`, leaving motion along `direction` completely unconstrained.
+///
+/// The magnitude of the resulting force attenuates over distance according to the configured [`Falloff`].
 ///
 /// # Examples
 ///
 /// ```rust
 /// use bevy::prelude::*;
-/// use bevy_context_steering::{Seek,Falloff};
-/// // Create a seek behavior with smoothstep falloff within 20 units
-/// let seek = Seek::new(Vec3::new(10.0, 0.0, 0.0))
+/// use bevy_context_steering::{Seek, Falloff};
+///
+/// // 1. Traditional 3D Point Seek
+/// let point_seek = Seek::new(Vec3::new(10.0, 0.0, 0.0))
 ///     .with_falloff(Falloff::SmoothStep { threshold: 20.0 });
+///
+/// // 32 Rail / Axis Lock along the X-axis (holds Y=0, Z=0)
+/// let rail_seek = Seek::axis(Vec3::X, Vec3::ZERO);
 /// ```
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Debug)]
@@ -26,6 +36,16 @@ use super::*;
 pub struct Seek {
     /// Global spatial position the agent is attempting to seek.
     pub target: Vec3,
+    /// Spatial offset applied relative to the target's position.
+    ///
+    /// - `Vec3::ZERO`: Seeks the target directly.
+    /// - Non-zero `Vec3`: Seeks a relative point shifted from `target` (e.g. formation slots, offsets).
+    pub offset: Vec3,
+    /// Unconstrained free-motion axis.
+    ///
+    /// - `Vec3::ZERO`: Standard 3D Point Seek.
+    /// - Normalized unit vector (e.g. `Vec3::Y`): Infinite Line / Rail Seek.
+    pub axis_direction : Vec3, 
     /// Distance-based attenuation profile controlling force magnitude drop-off.
     pub falloff: Falloff,
 }
@@ -35,42 +55,72 @@ impl Seek {
     pub const fn new(target: Vec3) -> Self {
         Self {
             target,
+            offset : Vec3::ZERO,
+            axis_direction : Vec3::ZERO,
             falloff: Falloff::None,
         }
     }
 
-    /// Sets the falloff behavior using builder syntax.
+    /// **Rail / Line Seek.** Agent is free to move along `axis_direction`;
+    /// pulled only in the plane perpendicular to it, toward the line through `position`.
+    pub fn rail(axis_direction: Vec3, position: Vec3) -> Self {
+        Self::new(position).with_axis_direction(axis_direction)
+    }
+
+    /// Sets the falloff behavior 
     pub const fn with_falloff(mut self, falloff: Falloff) -> Self {
         self.falloff = falloff;
         self
     }
+
+    /// Sets the relative spatial offset from the target.
+    pub const fn with_offset(mut self, offset: Vec3) -> Self {
+        self.offset = offset;
+        self
+    }
+
+    /// Sets the unconstrained direction axis 
+    pub fn with_axis_direction(mut self, axis_direction: Vec3) -> Self {
+        self.axis_direction = axis_direction.normalize_or_zero();
+        self
+    }
+
+  
 }
 
 impl Seek {
     pub(crate) fn steering_behaviour_update(mut query: ActiveAgentsQuery<BehaviourQueryData<Self>>) {
         query
             .par_iter_mut()
-            .for_each(|mut agent| {
-                let desired_direction = Self::desired_direction(&agent);
+            .for_each(|mut agent| {  
+                let agent_position = agent.transform.translation();
+                let target = agent.behaviour.target();
 
-                let distance = agent.transform.translation().distance(agent.behaviour.target);
+                let target_direction =  agent_position - target;
+                let agent_axis =  agent.behaviour.axis_direction;
+                let t = target_direction.dot(agent_axis);
+                let v = agent.behaviour.target + t * agent_axis;
+                
+                let distance = agent.transform.translation().distance(v);
 
-                // TODO: remvoe this since this doesnt help
-                if distance.squared() <= f32::EPSILON {
+                if distance <= f32::EPSILON {
                     agent.context.clear_interest::<Self>();
                 } else {
-                    let factor = agent.behaviour.falloff.inwards_factor(distance);
+                    let steering_dir = (v - agent_position).normalize_or_zero();
 
-                    let desired_direction = desired_direction * factor;
-                    agent.context.set_interest::<Self>(desired_direction);
+                    let factor = agent.behaviour.falloff.inwards_factor(distance);
+                    let steering_dir = steering_dir * factor;
+                    agent.context.set_interest::<Self>(steering_dir);
                 }
             });
     }
 
+    // TODO:rename target_direction
     pub(super) fn desired_direction<T:BehaviourData>(agent: &BehaviourQueryDataItem<'_, '_, T>) -> Vec3 {
-        let position = agent.transform.translation();
-        let target = agent.behaviour.target();
-        let desired_direction = (target - position).normalize_or_zero();
+       let agent_position = agent.transform.translation();
+                let target = agent.behaviour.target();
+
+        let desired_direction = (target - agent_position).normalize_or_zero();
         desired_direction
     }
 }

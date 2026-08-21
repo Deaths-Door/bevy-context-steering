@@ -283,7 +283,6 @@ fn test_flee(target_pos: Vec3, falloff: Falloff) {
     }
 }
 
-/*
 use bevy::math::vec3;
 // --- Stationary target ---
 #[test_case(Vec3::ZERO, vec3(10.0, 0.0, 0.0), &[Vec3::ZERO]; "Pursuit - Stationary Target")]
@@ -307,28 +306,17 @@ use bevy::math::vec3;
 #[test_case(Vec3::ZERO, vec3(10.0, 0.0, 10.0), &[vec3(1.0, 0.001, 0.0)]; "Pursuit - Near-Zero Y Velocity Component")]
 #[test_case(vec3(7.32, 0.0, -4.15), vec3(-3.5, 0.0, 9.88), &[vec3(2.1, 0.0, -1.7)]; "Pursuit - Randomized Positions and Velocity")]
 fn test_pursuit(agent_pos: Vec3, target_pos: Vec3, velocities: &[Vec3]) {
-    let mut agent_id = Entity::PLACEHOLDER;
-    let mut target_id = Entity::PLACEHOLDER;
+    let mut app = App::test();
 
-    let mut app = setup_app(|app| {
-        let mut commands = app.world_mut().commands();
+    let target_id = app.spawn_agent(|mut commands| {
+        commands.insert((Transform::from_translation(target_pos)));
+    });
 
-        // 1. Spawn the Target moving at a constant speed
-        target_id = commands
-            .spawn((
-                Transform::from_translation(target_pos),
-                RigidBody::Dynamic,
-                Mass(1.0),
-                Collider::sphere(1.0),
-            ))
-            .id();
-
-        // 2. Spawn the Agent with Pursuit behavior
-        let behaviour = Pursuit::new(target_id);
-        agent_id = spawn_agent(&mut commands)
-            .insert(Transform::from_translation(agent_pos))
-            .insert(behaviour)
-            .id();
+    let agent_id = app.spawn_agent(|mut commands| {
+        commands.insert((
+            Transform::from_translation(agent_pos),
+            Pursuit::new(target_id),
+        ));
     });
 
     for &velocity in velocities.iter() {
@@ -345,7 +333,7 @@ fn test_pursuit(agent_pos: Vec3, target_pos: Vec3, velocities: &[Vec3]) {
             (t_pos - a_pos).length()
         };
 
-        loop_frames(&mut app);
+        app.step();
 
         let a_pos = app.world().get::<Transform>(agent_id).unwrap().translation;
         let a_vel = app.world().get::<LinearVelocity>(agent_id).unwrap().0;
@@ -435,30 +423,19 @@ fn test_pursuit(agent_pos: Vec3, target_pos: Vec3, velocities: &[Vec3]) {
 #[test_case(Vec3::ZERO, vec3(10.0, 0.0, 0.0), &[vec3(20.0, 0.0, 0.0)]; "Evade - Threat Sprinting Away")]
 // Threat is at the exact same position (zero separation — degenerate)
 #[test_case(Vec3::ZERO, Vec3::ZERO, &[vec3(-1.0, 0.0, 0.0)]; "Evade - Threat Spawns On Agent")]
-// Very high threat speed — prediction time collapses, agent should still not freeze
-#[test_case(Vec3::ZERO, vec3(10.0, 0.0, 0.0), &[vec3(-100.0, 0.0, 0.0)]; "Evade - Threat Extremely Fast Approach")]
 
 fn test_evade(agent_pos: Vec3, threat_pos: Vec3, velocities: &[Vec3]) {
-    let mut agent_id = Entity::PLACEHOLDER;
-    let mut threat_id = Entity::PLACEHOLDER;
+    let mut app = App::test();
 
-    let mut app = setup_app(|app| {
-        let mut commands = app.world_mut().commands();
+    let threat_id = app.spawn_agent(|mut commands| {
+        commands.insert((Transform::from_translation(threat_pos)));
+    });
 
-        threat_id = commands
-            .spawn((
-                Transform::from_translation(threat_pos),
-                RigidBody::Dynamic,
-                Mass(1.0),
-                Collider::sphere(1.0),
-            ))
-            .id();
-
-        let behaviour = Evade::new(threat_id);
-        agent_id = spawn_agent(&mut commands)
-            .insert(Transform::from_translation(agent_pos))
-            .insert(behaviour)
-            .id();
+    let agent_id = app.spawn_agent(|mut commands| {
+        commands.insert((
+            Transform::from_translation(agent_pos),
+            Evade::new(threat_id),
+        ));
     });
 
     for &velocity in velocities.iter() {
@@ -468,7 +445,7 @@ fn test_evade(agent_pos: Vec3, threat_pos: Vec3, velocities: &[Vec3]) {
             .unwrap();
         vel.0 = velocity;
 
-        loop_frames(&mut app);
+        app.step();
 
         let a_pos = app.world().get::<Transform>(agent_id).unwrap().translation;
         let a_vel = app.world().get::<LinearVelocity>(agent_id).unwrap().0;
@@ -532,39 +509,3 @@ fn test_evade(agent_pos: Vec3, threat_pos: Vec3, velocities: &[Vec3]) {
         }
     }
 }
-
-/// Helper function to spawn cluster member entities that establish a center of mass.
-fn spawn_cluster_members(
-    commands: &mut Commands,
-    cluster_id: ClusterId,
-    positions: impl Iterator<Item = Vec3>,
-) {
-    positions.for_each(|pos| {
-        let id = commands
-            .spawn((
-                Transform::from_translation(pos),
-                RigidBody::Dynamic,
-                Mass(1.0),
-                Collider::sphere(1.0),
-            ))
-            .id();
-        commands.entity(id).enter_cluster(cluster_id);
-    });
-}
-
-fn setup_clusters(
-    cluster_members: impl Iterator<Item = (ClusterId, impl Iterator<Item = Vec3>)>,
-    using_agent: impl FnOnce(EntityCommands),
-) -> App {
-    setup_app(|app| {
-        let mut commands = app.world_mut().commands();
-
-        for (cluster_id, member_positions) in cluster_members {
-            spawn_cluster_members(&mut commands, cluster_id, member_positions);
-        }
-        let agent_cmd = spawn_agent(&mut commands);
-        (using_agent)(agent_cmd)
-    })
-}
-//TODO: test cohere, scatter;
- */

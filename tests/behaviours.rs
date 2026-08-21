@@ -56,7 +56,7 @@ impl SteeringScenarioExt for App {
             Mass(1.0),
             Collider::sphere(COLLIDER_RADIUS),
             SteeringAgent {
-                max_speed: 5.0,
+                max_speed: 20.0,
                 max_force: Vec3::splat(50.0),
                 acceleration_wn: 15.0,
                 ..default()
@@ -511,9 +511,11 @@ fn test_throttle(target_velocity: Vec3, agent_initial_velocity: Vec3) {
 
     let agent_id = app.spawn_agent(|mut commands| {
         commands.insert((
+
             LinearVelocity(agent_initial_velocity),
             Throttle::new(target_id),
         ));
+
     });
 
     app.step();

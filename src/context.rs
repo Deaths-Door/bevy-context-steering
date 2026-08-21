@@ -123,6 +123,14 @@ impl SteeringBehaviour {
             *interest = 0.0;
         }
     }
+
+    
+    pub fn clear_danger(&mut self) {
+        for Weight { danger, .. } in self.field.iter_mut() {
+            *danger = 0.0;
+        }
+    }
+
     pub const fn set_weight(&mut self, weight: f32) {
         self.weight = weight;
     }
@@ -168,6 +176,9 @@ impl SteeringContext {
     pub fn clear_interest<K: 'static>(&mut self) -> bool {
         self.get_mut::<K>().map(|v| v.clear_interest()).is_some()
     }
+    pub fn clear_danger<K: 'static>(&mut self) -> bool {
+        self.get_mut::<K>().map(|v| v.clear_danger()).is_some()
+    }
 }
 
 impl SteeringContext {
@@ -182,7 +193,9 @@ impl SteeringContext {
 
         // Nothing to react to at all — stay put, don't hand off to interpolate,
         // which always returns a unit vector even when weights sum to ~0.
-        let is_clean = field_iter.clone().all(|w| w.interest <= f32::EPSILON && w.danger <= f32::EPSILON);
+        let is_clean = field_iter
+            .clone()
+            .all(|w| w.interest <= f32::EPSILON && w.danger <= f32::EPSILON);
 
         if is_clean {
             self.resultant_direction = Vec3::ZERO;
@@ -192,8 +205,7 @@ impl SteeringContext {
         let masks = into_masked_interest(field_iter);
 
         // Find the slot index with the highest remaining interest.
-        let Some((resultant_slot, _)) =
-            masks.enumerate().max_by(|(_, a), (_, b)| a.total_cmp(b))
+        let Some((resultant_slot, _)) = masks.enumerate().max_by(|(_, a), (_, b)| a.total_cmp(b))
         else {
             unreachable!()
         };

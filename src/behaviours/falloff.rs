@@ -60,7 +60,7 @@ impl Falloff {
 
         // x ranges from 0.0 at center (distance = 0) to 1.0 at threshold boundary
         let x = (distance / threshold).clamp(0.0, 1.0);
-        self.curve_factor(x)
+        self.curve_factor(x).unwrap_or(0.0)
     }
 
     /// Outwards falloff (e.g. Flee / Danger zone).
@@ -71,13 +71,18 @@ impl Falloff {
             return 1.0;
         };
 
+        // Degenerate threshold check: prevents 0.0 / 0.0 NaN division
+        if threshold <= f32::EPSILON {
+            return if distance <= f32::EPSILON { 1.0 } else { 0.0 };
+        }
+        
         if distance >= threshold {
             return 0.0;
         }
 
         // x ranges from 1.0 at center (distance = 0) down to 0.0 at threshold boundary
         let x = (1.0 - (distance / threshold)).clamp(0.0, 1.0);
-        self.curve_factor(x)
+        self.curve_factor(x).unwrap_or(1.0)
     }
 
     /// Helper to extract the threshold value across variants.
@@ -96,10 +101,11 @@ impl Falloff {
     }
 
     /// Maps normalized progress x in [0.0, 1.0] onto the curve function.
-    fn curve_factor(&self, x: f32) -> f32 {
-        match self {
+    fn curve_factor(&self, x: f32) -> Option<f32> {
+        let value = match self {
             Self::None => 1.0,
-            Self::Stop { .. } => 0.0,
+            // Issiue is stop can mean both 1 or 0
+            Self::Stop { .. } => return None,
             Self::Linear { .. } => x,
             Self::Quadratic { .. } => x * x,
             Self::Cubic { .. } => x * x * x,
@@ -110,6 +116,7 @@ impl Falloff {
                 let k = *exponent;
                 (1.0 - (-k * x).exp()) / (1.0 - (-k).exp())
             }
-        }
+        };
+        Some(value)
     }
 }

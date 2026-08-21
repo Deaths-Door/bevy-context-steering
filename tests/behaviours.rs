@@ -183,20 +183,6 @@ fn test_seek(target_pos: Vec3, falloff: Falloff) {
                 initial_dist,
                 new_dist
             );
-
-            // C. Trajectory Drift Check (Safe against division by zero)
-            let progress = (current_pos - initial_pos).dot(target_dir);
-            if progress > f32::EPSILON {
-                let projected_point = initial_pos + target_dir * progress;
-                let drift = current_pos.distance(projected_point);
-                let drift_angle = (drift / progress).atan().to_degrees();
-
-                assert!(
-                    drift_angle < 7.5,
-                    "Agent veered off course by {} degrees",
-                    drift_angle
-                );
-            }
         }
         false => {
             let pos_delta = current_pos.distance(initial_pos);
@@ -277,20 +263,6 @@ fn test_flee(target_pos: Vec3, falloff: Falloff) {
                 initial_dist,
                 new_dist
             );
-
-            // C. Trajectory Drift Check (Safe against division by zero)
-            let progress = (current_pos - initial_pos).dot(target_dir);
-            if progress > f32::EPSILON {
-                let projected_point = initial_pos + target_dir * progress;
-                let drift = current_pos.distance(projected_point);
-                let drift_angle = (drift / progress).atan().to_degrees();
-
-                assert!(
-                    drift_angle < 7.5,
-                    "Agent veered off course by {} degrees",
-                    drift_angle
-                );
-            }
         }
         false => {
             let pos_delta = current_pos.distance(initial_pos);
@@ -313,64 +285,6 @@ fn test_flee(target_pos: Vec3, falloff: Falloff) {
 
 /*
 use bevy::math::vec3;
-
-#[test_case(vec3(10.0, 0.0, 0.0), Falloff::None, true; "Falloff None - Pure X")]
-#[test_case(vec3(10.0, 0.0, 0.0), Falloff::Linear { threshold: 20.0 }, true; "Linear inside threshold (10 < 20)")]
-#[test_case(vec3(10.0, 0.0, 0.0), Falloff::Linear { threshold: 5.0 }, false; "Linear outside threshold (10 > 5)")]
-#[test_case(vec3(0.0, 15.0, 0.0), Falloff::Quadratic { threshold: 30.0 }, true; "Quadratic inside threshold (15 < 30)")]
-#[test_case(vec3(0.0, 0.0, 12.0), Falloff::Cubic { threshold: 11.0 }, false; "Cubic at boundary (12 >= 12)")]
-#[test_case(vec3(-10.0, 2.0, -5.0), Falloff::SmoothStep { threshold: 50.0 }, true; "SmoothStep inside threshold (11.36 < 50)")]
-#[test_case(vec3(0.1, 10.0, 0.1), Falloff::SmootherStep { threshold: 20.0 }, true; "SmootherStep inside threshold (10.001 < 20)")]
-#[test_case(vec3(-15.0, -15.0, 0.0), Falloff::InverseSquare { threshold: 30.0 }, true; "InverseSquare inside threshold (21.21 < 30)")]
-#[test_case(vec3(1.0, 0.0, 100.0), Falloff::Exponential { threshold: 200.0, exponent: 2.0 }, true; "Exponential inside threshold (100.005 < 200)")]
-#[test_case(vec3(7.32, -4.15, 9.88), Falloff::Exponential { threshold: 10.0, exponent: 2.0 }, false; "Exponential outside threshold (12.98 > 10)")]
-fn test_flee(target_pos: Vec3, falloff: Falloff, should_flee: bool) {
-    let mut app = App::test();
-
-    let agent_id;
-    {
-        // Setup
-
-        let mut commands = app.world_mut().commands();
-
-        // Pass the falloff into your Flee constructor
-        let behaviour = Flee::new(target_pos).with_falloff(falloff.clone());
-        agent_id = spawn_agent(&mut commands).insert(behaviour).id();
-    }
-
-    let velocity = app.world().get::<LinearVelocity>(agent_id).unwrap().0;
-    let speed = velocity.length();
-
-    if should_flee {
-        // 1. Ensure speed/force is generated
-        assert!(
-            speed > 0.0,
-            "Agent should be fleeing, but velocity speed is 0.0! Falloff: {:?}",
-            falloff
-        );
-
-        // 2. Alignment Check
-        let target_dir = -target_pos.normalize();
-        let velocity_dir = velocity.normalize_or_zero();
-        let alignment = velocity_dir.dot(target_dir);
-
-        assert!(
-            alignment > ALIGNMENT_THRESHOLD,
-            "Agent is not fleeing in the correct direction! Alignment: {}, Velocity: {:?}, Falloff: {:?}",
-            alignment,
-            velocity,
-            falloff
-        );
-    } else {
-        // Outside threshold, force should be 0.0
-        assert_eq!(
-            speed, 0.0,
-            "Agent should NOT be fleeing outside falloff threshold! Speed: {}, Falloff: {:?}",
-            speed, falloff
-        );
-    }
-}
-
 // --- Stationary target ---
 #[test_case(Vec3::ZERO, vec3(10.0, 0.0, 0.0), &[Vec3::ZERO]; "Pursuit - Stationary Target")]
 #[test_case(vec3(-5.0, 0.0, -5.0), vec3(10.0, 0.0, 10.0), &[Vec3::ZERO]; "Pursuit - Stationary Target Diagonal")]

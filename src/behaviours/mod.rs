@@ -6,11 +6,12 @@ mod pursuit;
 mod flee;
 mod seek;
 
+mod brake;
+mod throttle;
+
 mod cohere;
 mod scatter;
 
-mod brake;
-mod throttle;
 
 use super::*;
 

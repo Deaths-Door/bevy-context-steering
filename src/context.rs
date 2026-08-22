@@ -60,6 +60,10 @@ pub struct SteeringBehaviour {
     weight: f32,
 }
 
+/// Length shoould always be SAMPLE_SIZE
+#[derive(Clone, Deref, DerefMut)]
+pub struct SteeringField(Box<[Weight; SAMPLE_SIZE]>);
+
 /// A directional weight pair representing the desirability and risk of a specific vector.
 #[derive(Default, Clone)]
 pub struct Weight {
@@ -69,9 +73,32 @@ pub struct Weight {
     danger: f32,
 }
 
-/// Length shoould always be SAMPLE_SIZE
-#[derive(Clone, Deref, DerefMut)]
-pub struct SteeringField(Box<[Weight; SAMPLE_SIZE]>);
+impl Weight {
+    /// Creates a new `Weight` instance with specified interest and danger values.
+    pub const fn new(interest: f32, danger: f32) -> Self {
+        Self { interest, danger }
+    }
+
+    /// Returns the interest value.
+    pub const fn interest(&self) -> f32 {
+        self.interest
+    }
+
+    /// Returns the danger value.
+    pub const fn danger(&self) -> f32 {
+        self.danger
+    }
+
+    /// Sets the interest value.
+    pub const fn set_interest(&mut self, interest: f32) {
+        self.interest = interest;
+    }
+
+    /// Sets the danger value.
+    pub const fn set_danger(&mut self, danger: f32) {
+        self.danger = danger;
+    }
+}
 
 impl Default for SteeringField {
     fn default() -> Self {
@@ -85,15 +112,6 @@ impl Default for SteeringBehaviour {
             field: Default::default(),
             weight: 1.0,
         }
-    }
-}
-impl Weight {
-    pub const fn interest(&self) -> f32 {
-        self.interest
-    }
-
-    pub const fn danger(&self) -> f32 {
-        self.danger
     }
 }
 
@@ -118,64 +136,94 @@ impl SteeringBehaviour {
         }
     }
 
+    /// Resets all interest values across the field to `0.0`.
     pub fn clear_interest(&mut self) {
         for Weight { interest, .. } in self.field.iter_mut() {
             *interest = 0.0;
         }
     }
 
-    
+    /// Resets all danger values across the field to `0.0`.
     pub fn clear_danger(&mut self) {
         for Weight { danger, .. } in self.field.iter_mut() {
             *danger = 0.0;
         }
     }
 
-    pub const fn set_weight(&mut self, weight: f32) {
-        self.weight = weight;
-    }
-
+    /// Returns the overall weight multiplier of this steering behaviour.
     pub const fn weight(&self) -> f32 {
         self.weight
     }
 
+    /// Sets the weight multiplier for this steering behaviour.
+    pub fn set_weight(&mut self, weight: f32) {
+        self.weight = weight;
+    }
+
+    /// Returns a reference to the underlying [`SteeringField`].
     pub const fn field(&self) -> &SteeringField {
         &self.field
+    }
+
+    /// Returns a mutable reference to the underlying [`SteeringField`].
+    pub fn field_mut(&mut self) -> &mut SteeringField {
+        &mut self.field
     }
 }
 
 impl SteeringContext {
+    /// Returns the calculated resultant direction of all active steering behaviours.
     pub const fn resultant_direction(&self) -> Vec3 {
         self.resultant_direction
     }
 
+    /// Removes the steering behaviour of type `K` from the context.
     pub fn remove<K: 'static>(&mut self) {
         self.behaviours.remove(&TypeId::of::<K>());
     }
 
+    /// Inserts a new default steering behaviour associated with type `K`.
     pub fn insert<K: 'static>(&mut self) {
         self.behaviours
             .insert(TypeId::of::<K>(), SteeringBehaviour::default());
     }
 
+    /// Returns an immutable reference to the steering behaviour of type `K`, if present.
+    pub fn get<K: 'static>(&self) -> Option<&SteeringBehaviour> {
+        self.behaviours.get(&TypeId::of::<K>())
+    }
+
+    /// Returns a mutable reference to the steering behaviour of type `K`, if present.
     pub fn get_mut<K: 'static>(&mut self) -> Option<&mut SteeringBehaviour> {
         self.behaviours.get_mut(&TypeId::of::<K>())
     }
 
+    /// Returns `true` if a steering behaviour of type `K` exists in the context.
+    pub fn contains<K: 'static>(&self) -> bool {
+        self.behaviours.contains_key(&TypeId::of::<K>())
+    }
+
+    /// Sets the weight of the behaviour `K`. Returns `true` if updated, or `false` if `K` was not found.
     pub fn set_weight<K: 'static>(&mut self, weight: f32) -> bool {
         self.get_mut::<K>().map(|v| v.set_weight(weight)).is_some()
     }
 
+    /// Sets the interest direction vector for behaviour `K`. Returns `true` if updated, `false` otherwise.
     pub fn set_interest<K: 'static>(&mut self, dir: Vec3) -> bool {
         self.get_mut::<K>().map(|v| v.set_interest(dir)).is_some()
     }
 
+    /// Sets the danger direction vector for behaviour `K`. Returns `true` if updated, `false` otherwise.
     pub fn set_danger<K: 'static>(&mut self, dir: Vec3) -> bool {
         self.get_mut::<K>().map(|v| v.set_danger(dir)).is_some()
     }
+
+    /// Clears the interest direction vector for behaviour `K`. Returns `true` if updated, `false` otherwise.
     pub fn clear_interest<K: 'static>(&mut self) -> bool {
         self.get_mut::<K>().map(|v| v.clear_interest()).is_some()
     }
+
+    /// Clears the danger direction vector for behaviour `K`. Returns `true` if updated, `false` otherwise.
     pub fn clear_danger<K: 'static>(&mut self) -> bool {
         self.get_mut::<K>().map(|v| v.clear_danger()).is_some()
     }

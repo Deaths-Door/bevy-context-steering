@@ -1,4 +1,18 @@
-use std::{any::TypeId, f32::consts::PI, sync::LazyLock};
+mod behaviour;
+mod cache;
+mod field;
+mod weight;
+
+pub use behaviour::*;
+pub use cache::*;
+pub use field::*;
+pub use weight::*;
+
+use std::{
+    any::TypeId,
+    f32::consts::PI,
+    sync::{Arc, LazyLock, RwLock},
+};
 
 use super::*;
 use bevy::{
@@ -6,172 +20,48 @@ use bevy::{
     platform::collections::HashMap,
 };
 
-const SAMPLE_SIZE: usize = 128;
-pub(crate) static DIRECTIONS: LazyLock<[Vec3; SAMPLE_SIZE]> = LazyLock::new(|| {
-    let golden_angle = PI * (5.0f32.sqrt() - 1.0);
-
-    std::array::from_fn(|i| {
-        let y = 1.0 - ((i as f32) / (SAMPLE_SIZE as f32 - 1.0)) * 2.0;
-        let r = (1.0 - y * y).sqrt();
-        let theta = golden_angle * (i as f32);
-        let x = r * cos(theta);
-        let z = r * sin(theta);
-        vec3(x, y, z)
-    })
-});
-
-/// A lookup table mapping each direction index to its immediate neighbors (including self) .
-static NEIGHBOURS: LazyLock<[Box<[usize]>; SAMPLE_SIZE]> = LazyLock::new(|| {
-    // Angular distance between points roughly equal to sqrt ( 4pi / N )
-    const TUNING: f32 = 1.25;
-    let distance = ((4.0 * PI) / SAMPLE_SIZE as f32).sqrt();
-    let radius = TUNING * distance;
-    let threshold = cos(radius);
-
-    std::array::from_fn(|index| {
-        let target = DIRECTIONS[index];
-        DIRECTIONS
-            .iter()
-            .enumerate()
-            // 1. Only include points within the dot product threshold
-            .filter(|(_, dir)| dir.dot(target) > threshold)
-            .map(|(i, _)| i)
-            .collect()
-    })
-});
-
 /// This component maintains a map of active behaviors and the resulting combined
 /// spatial field used for decision making.
-#[derive(Component, Default, Deref, DerefMut)]
+#[derive(Component, Deref, DerefMut)]
 pub struct SteeringContext {
+    pub cache: Arc<SteeringDirectionsCache>,
+
     /// Active behaviors indexed by their unique type ID.
     #[deref]
     behaviours: HashMap<TypeId, SteeringBehaviour>,
+
     /// The final, weighted combination of all interest and danger samples.
     resultant_field: SteeringField,
 
     resultant_direction: Vec3,
 }
 
-/// A singular steering logic unit (e.g., Seek, Flee, Obstacle Avoidance).
-pub struct SteeringBehaviour {
-    field: SteeringField,
-    /// Used to prioritize this behavior during the blending process.
-    weight: f32,
-}
-
-/// Length shoould always be SAMPLE_SIZE
-#[derive(Clone, Deref, DerefMut)]
-pub struct SteeringField(Box<[Weight; SAMPLE_SIZE]>);
-
-/// A directional weight pair representing the desirability and risk of a specific vector.
-#[derive(Default, Clone)]
-pub struct Weight {
-    /// How much the agent wants to move in this direction.
-    interest: f32,
-    /// How much the agent wants to avoid moving in this direction.
-    danger: f32,
-}
-
-impl Weight {
-    /// Creates a new `Weight` instance with specified interest and danger values.
-    pub const fn new(interest: f32, danger: f32) -> Self {
-        Self { interest, danger }
-    }
-
-    /// Returns the interest value.
-    pub const fn interest(&self) -> f32 {
-        self.interest
-    }
-
-    /// Returns the danger value.
-    pub const fn danger(&self) -> f32 {
-        self.danger
-    }
-
-    /// Sets the interest value.
-    pub const fn set_interest(&mut self, interest: f32) {
-        self.interest = interest;
-    }
-
-    /// Sets the danger value.
-    pub const fn set_danger(&mut self, danger: f32) {
-        self.danger = danger;
-    }
-}
-
-impl Default for SteeringField {
+impl Default for SteeringContext {
     fn default() -> Self {
-        Self(Box::new(std::array::from_fn(|_| Weight::default())))
-    }
-}
+        let cache = SteeringDirectionsCache::default_shared();
+        let resultant_field = SteeringField::from_cache(&cache);
 
-impl Default for SteeringBehaviour {
-    fn default() -> Self {
         Self {
-            field: Default::default(),
-            weight: 1.0,
+            cache,
+            resultant_field,
+            behaviours: Default::default(),
+            resultant_direction: Default::default(),
         }
-    }
-}
-
-impl SteeringBehaviour {
-    /// Assigns interest to each direction based on the given input  vector.
-    pub fn set_interest(&mut self, dir: Vec3) {
-        let dir = dir.normalize_or_zero();
-
-        for (Weight { interest, .. }, direction) in self.field.iter_mut().zip(DIRECTIONS.iter()) {
-            let new_interest = direction.dot(dir).max(0.0);
-            *interest = new_interest
-        }
-    }
-
-    ///  Assigns danger to each direction based on the given input vector.
-    pub fn set_danger(&mut self, dir: Vec3) {
-        let dir = dir.normalize_or_zero();
-
-        for (Weight { danger, .. }, direction) in self.field.iter_mut().zip(DIRECTIONS.iter()) {
-            let new_danger = direction.dot(dir).max(0.0);
-            *danger = new_danger
-        }
-    }
-
-    /// Resets all interest values across the field to `0.0`.
-    pub fn clear_interest(&mut self) {
-        for Weight { interest, .. } in self.field.iter_mut() {
-            *interest = 0.0;
-        }
-    }
-
-    /// Resets all danger values across the field to `0.0`.
-    pub fn clear_danger(&mut self) {
-        for Weight { danger, .. } in self.field.iter_mut() {
-            *danger = 0.0;
-        }
-    }
-
-    /// Returns the overall weight multiplier of this steering behaviour.
-    pub const fn weight(&self) -> f32 {
-        self.weight
-    }
-
-    /// Sets the weight multiplier for this steering behaviour.
-    pub fn set_weight(&mut self, weight: f32) {
-        self.weight = weight;
-    }
-
-    /// Returns a reference to the underlying [`SteeringField`].
-    pub const fn field(&self) -> &SteeringField {
-        &self.field
-    }
-
-    /// Returns a mutable reference to the underlying [`SteeringField`].
-    pub fn field_mut(&mut self) -> &mut SteeringField {
-        &mut self.field
     }
 }
 
 impl SteeringContext {
+    pub fn new(cache: Arc<SteeringDirectionsCache>) -> Self {
+        let resultant_field = SteeringField::from_cache(&cache);
+
+        Self {
+            cache,
+            resultant_field,
+            behaviours: Default::default(),
+            resultant_direction: Default::default(),
+        }
+    }
+
     /// Returns the calculated resultant direction of all active steering behaviours.
     pub const fn resultant_direction(&self) -> Vec3 {
         self.resultant_direction
@@ -184,8 +74,10 @@ impl SteeringContext {
 
     /// Inserts a new default steering behaviour associated with type `K`.
     pub fn insert<K: 'static>(&mut self) {
-        self.behaviours
-            .insert(TypeId::of::<K>(), SteeringBehaviour::default());
+        self.behaviours.insert(
+            TypeId::of::<K>(),
+            SteeringBehaviour::from_cache(&self.cache),
+        );
     }
 
     /// Returns an immutable reference to the steering behaviour of type `K`, if present.
@@ -210,22 +102,40 @@ impl SteeringContext {
 
     /// Sets the interest direction vector for behaviour `K`. Returns `true` if updated, `false` otherwise.
     pub fn set_interest<K: 'static>(&mut self, dir: Vec3) -> bool {
-        self.get_mut::<K>().map(|v| v.set_interest(dir)).is_some()
+        // Ideally use self.get_mut::<K>(), but partial borrows dont work
+        self.behaviours
+            .get_mut(&TypeId::of::<K>())
+            .map(|behaviour| behaviour.set_interest(&self.cache, dir))
+            .is_some()
     }
 
     /// Sets the danger direction vector for behaviour `K`. Returns `true` if updated, `false` otherwise.
     pub fn set_danger<K: 'static>(&mut self, dir: Vec3) -> bool {
-        self.get_mut::<K>().map(|v| v.set_danger(dir)).is_some()
+        // Ideally use self.get_mut::<K>(), but partial borrows dont work
+
+        self.behaviours
+            .get_mut(&TypeId::of::<K>())
+            .map(|v| v.set_danger(&self.cache, dir))
+            .is_some()
     }
 
     /// Clears the interest direction vector for behaviour `K`. Returns `true` if updated, `false` otherwise.
     pub fn clear_interest<K: 'static>(&mut self) -> bool {
-        self.get_mut::<K>().map(|v| v.clear_interest()).is_some()
+        // Ideally use self.get_mut::<K>(), but partial borrows dont work
+
+        self.behaviours
+            .get_mut(&TypeId::of::<K>())
+            .map(|v| v.clear_interest())
+            .is_some()
     }
 
     /// Clears the danger direction vector for behaviour `K`. Returns `true` if updated, `false` otherwise.
     pub fn clear_danger<K: 'static>(&mut self) -> bool {
-        self.get_mut::<K>().map(|v| v.clear_danger()).is_some()
+        // Ideally use self.get_mut::<K>(), but partial borrows dont work
+        self.behaviours
+            .get_mut(&TypeId::of::<K>())
+            .map(|v| v.clear_danger())
+            .is_some()
     }
 }
 
@@ -263,21 +173,22 @@ impl SteeringContext {
 
     /// Allows for more 'natural-ish' movement
     fn interpolate(&self, slot: usize) -> Vec3 {
-        let neighbours = &NEIGHBOURS[slot];
+        let directions = self.cache.directions();
+        let neighbours = &*self.cache.direction_neighbours()[slot];
         let neighbouring_weights = neighbours.iter().map(|index| &self.resultant_field[*index]);
         let masks = into_masked_interest(neighbouring_weights);
 
-        let mut direction = Vec3::ZERO;
+        let mut interpolated_direction = Vec3::ZERO;
         let mut weights = 0.0;
 
         for (interest, index) in masks.zip(neighbours.iter()) {
-            direction += interest * DIRECTIONS[*index];
+            interpolated_direction += interest * directions[*index];
             weights += interest;
         }
 
         match weights > f32::EPSILON {
-            true => direction.normalize_or_zero(),
-            false => DIRECTIONS[slot],
+            true => interpolated_direction.normalize_or_zero(),
+            false => directions[slot],
         }
     }
 
@@ -285,7 +196,9 @@ impl SteeringContext {
         // Reset the resultant field to a clean state (0.0 interest, 0.0 danger).
         self.resultant_field.fill(Weight::default());
 
-        for SteeringBehaviour { field, weight } in self.behaviours.values() {
+        for behaviour in self.behaviours.values() {
+            let field = behaviour.field();
+            let weight = behaviour.weight();
             for (resultant, Weight { interest, danger }) in
                 self.resultant_field.iter_mut().zip(field.iter())
             {
@@ -336,7 +249,8 @@ mod tests {
 
     #[test]
     fn interest_only() {
-        let intended_diretion = DIRECTIONS[0];
+        let cache = SteeringDirectionsCache::default_shared();
+        let intended_diretion = cache.directions()[0];
         let expected_direction = intended_diretion;
 
         apply_test(expected_direction, |context| {
@@ -349,7 +263,7 @@ mod tests {
         let mut context = SteeringContext::default();
         context.insert::<Behaviour>();
 
-        let intended_diretion = DIRECTIONS[0];
+        let intended_diretion = context.cache.directions()[0];
         let expected_direction = -intended_diretion;
 
         apply_test(expected_direction, |context| {
@@ -372,9 +286,11 @@ mod tests {
 
     #[test]
     fn interpolation() {
-        let center_idx = SAMPLE_SIZE / 2;
-        let neighbor_idx = NEIGHBOURS[center_idx][1];
-        let off_grid_target = (DIRECTIONS[center_idx] + DIRECTIONS[neighbor_idx]).normalize();
+        let cache = SteeringDirectionsCache::default_shared();
+
+        let center_idx = cache.directions().len() / 2;
+        let neighbor_idx = cache.direction_neighbours()[center_idx][1];
+        let off_grid_target = (cache.directions()[center_idx] + cache.directions()[neighbor_idx]).normalize();
         apply_test(off_grid_target, |context| {
             context.set_interest::<Behaviour>(off_grid_target);
         });

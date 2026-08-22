@@ -11,7 +11,7 @@ impl Plugin for SteeringDebugPlugin {
 fn debug_steering_context(
     mut gizmos: Gizmos,
     query: ActiveAgentsQuery<(&SteeringContext, &GlobalTransform)>,
-) {
+) {/*
     // TODO: improve this;
     let palette = [RED, BLUE, GREEN];
     for (context, transform) in query.iter() {
@@ -26,5 +26,5 @@ fn debug_steering_context(
                 gizmos.arrow(start, end_danger, danger_color);
             }
         }
-    }
+    } */
 }

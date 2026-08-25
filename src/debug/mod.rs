@@ -12,7 +12,6 @@ pub struct SteeringDebugPlugin;
 impl Plugin for SteeringDebugPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(FixedPostUpdate, debug_steering_context);
-        
     }
 }
 

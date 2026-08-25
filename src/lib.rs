@@ -6,6 +6,7 @@ mod context;
 mod prediction;
 mod systems;
 mod utils;
+mod motion;
 
 #[cfg(feature = "debug")]
 pub mod debug;
@@ -20,6 +21,7 @@ pub use clusters::*;
 pub use commands::*;
 pub use context::*;
 pub use prediction::*;
+pub use motion::*;
 
 pub(crate) use utils::*;
 

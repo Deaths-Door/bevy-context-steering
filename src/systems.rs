@@ -1,5 +1,7 @@
 use super::*;
 
+
+
 pub(crate) type ActiveAgentsQuery<'w, 's, D, F = ()> = Query<'w, 's, D, (With<SteeringAgent>, F)>;
 
 pub(super) fn update_resultant_field(mut query: ActiveAgentsQuery<&mut SteeringContext>) {

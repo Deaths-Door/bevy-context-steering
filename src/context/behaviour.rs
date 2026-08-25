@@ -33,6 +33,16 @@ impl SteeringBehaviour {
 
     /// Assigns interest to each direction based on the given input  vector.
     pub fn set_interest(&mut self, cache: &SteeringDirectionsCache, dir: Vec3) {
+        self.set_interest_with(cache, dir, overwrite);
+    }
+
+    /// Assigns interest to each direction based on the given input  vector.
+    pub fn set_interest_with(
+        &mut self,
+        cache: &SteeringDirectionsCache,
+        dir: Vec3,
+        combine: impl Fn(f32, f32) -> f32,
+    ) {
         assert_cache_len!(self.field, cache);
 
         let dir = dir.normalize_or_zero();
@@ -41,12 +51,21 @@ impl SteeringBehaviour {
             self.field.iter_mut().zip(cache.directions().iter())
         {
             let new_interest = direction.dot(dir).max(0.0);
-            *interest = new_interest
+            *interest = (combine)(*interest, new_interest)
         }
     }
 
     ///  Assigns danger to each direction based on the given input vector.
     pub fn set_danger(&mut self, cache: &SteeringDirectionsCache, dir: Vec3) {
+        self.set_danger_with(cache, dir, overwrite);
+    }
+
+    pub fn set_danger_with(
+        &mut self,
+        cache: &SteeringDirectionsCache,
+        dir: Vec3,
+        combine: impl Fn(f32, f32) -> f32,
+    ) {
         assert_cache_len!(self.field, cache);
         let dir = dir.normalize_or_zero();
 
@@ -54,7 +73,57 @@ impl SteeringBehaviour {
             self.field.iter_mut().zip(cache.directions().iter())
         {
             let new_danger = direction.dot(dir).max(0.0);
-            *danger = new_danger
+            *danger = (combine)(*danger, new_danger);
+        }
+    }
+
+    ///  Assigns velocity to the given direction
+
+    pub fn set_velocity(
+        &mut self,
+        cache: &SteeringDirectionsCache,
+        direction: Vec3,
+        target_velocity: Vec3,
+    ) {
+        let direction_slot = cache.nearest_direction_slot(direction);
+        self.set_velocity_at(cache, direction_slot, target_velocity);
+    }
+
+    ///  Assigns velocity to the given direction
+    pub fn set_velocity_at(
+        &mut self,
+        cache: &SteeringDirectionsCache,
+        direction_slot: usize,
+        target_velocity: Vec3,
+    ) {
+        self.set_velocity_with(cache, direction_slot, target_velocity, overwrite);
+    }
+
+    ///  Assigns velocity to the given direction
+    pub fn set_velocity_with(
+        &mut self,
+        cache: &SteeringDirectionsCache,
+        direction_slot: usize,
+        target_velocity: Vec3,
+        combine: impl Fn(Vec3, Vec3) -> Vec3,
+    ) {
+        let directions = cache.directions();
+        let neighbours = cache.direction_neighbours();
+        let target_direction = directions[direction_slot];
+
+        for &slot in &neighbours[direction_slot] {
+            let direction = directions[slot];
+            let wk = target_direction.dot(direction).max(0.0);
+            let velocity = target_velocity * wk;
+
+            match &mut self.field[slot].velocity {
+                Some(v_old) => {
+                    *v_old = (combine)(*v_old, velocity);
+                }
+                vel @ None => {
+                    *vel = Some(velocity);
+                }
+            }
         }
     }
 
@@ -69,6 +138,13 @@ impl SteeringBehaviour {
     pub fn clear_danger(&mut self) {
         for Weight { danger, .. } in self.field.iter_mut() {
             *danger = 0.0;
+        }
+    }
+
+    /// Clears all velocity entries written to this behaviour.
+    pub fn clear_velocity(&mut self) {
+        for slot in self.field.iter_mut() {
+            slot.velocity = None;
         }
     }
 
@@ -91,4 +167,8 @@ impl SteeringBehaviour {
     pub fn field_mut(&mut self) -> &mut SteeringField {
         &mut self.field
     }
+}
+
+fn overwrite<T>(_: T, b: T) -> T {
+    b
 }

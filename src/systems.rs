@@ -18,7 +18,12 @@ pub(super) struct BehaviourForceQueryData {
 pub(super) fn apply_forces(mut query: ActiveAgentsQuery<BehaviourForceQueryData>) {
     query.par_iter_mut().for_each(|mut agent| {
         let target_heading = agent.context.resultant_direction();
-        let target_velocity = target_heading * agent.data.max_speed;
+        // TODO: figure how how to combien this...?
+        let target_velocity = agent
+            .context
+            .resultant_velocity()
+            .unwrap_or_else(|| target_heading * agent.data.max_speed);
+
         let current_velocity = agent.forces.linear_velocity();
         let desired_velocity = target_velocity - current_velocity;
 

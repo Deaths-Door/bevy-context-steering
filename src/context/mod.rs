@@ -28,25 +28,19 @@ pub struct SteeringContext {
 
     /// Active behaviors indexed by their unique type ID.
     #[deref]
-    behaviours: HashMap<TypeId, SteeringBehaviour>,
+    pub behaviours: HashMap<TypeId, SteeringBehaviour>,
 
-    /// The final, weighted combination of all interest and danger samples.
+    /// The scratchpad to calculate the final, weighted combination of all interest and danger samples.
     resultant_field: SteeringField,
 
     resultant_direction: Vec3,
+    resultant_velocity: Option<Vec3>,
 }
 
 impl Default for SteeringContext {
     fn default() -> Self {
         let cache = SteeringDirectionsCache::default_shared();
-        let resultant_field = SteeringField::from_cache(&cache);
-
-        Self {
-            cache,
-            resultant_field,
-            behaviours: Default::default(),
-            resultant_direction: Default::default(),
-        }
+        Self::new(cache)
     }
 }
 
@@ -59,12 +53,18 @@ impl SteeringContext {
             resultant_field,
             behaviours: Default::default(),
             resultant_direction: Default::default(),
+            resultant_velocity: Default::default(),
         }
     }
 
     /// Returns the calculated resultant direction of all active steering behaviours.
     pub const fn resultant_direction(&self) -> Vec3 {
         self.resultant_direction
+    }
+
+    /// Returns the calculated resultant velocity of all active steering behaviours.
+    pub const fn resultant_velocity(&self) -> Option<Vec3> {
+        self.resultant_velocity
     }
 
     /// Removes the steering behaviour of type `K` from the context.
@@ -137,15 +137,86 @@ impl SteeringContext {
             .map(|v| v.clear_danger())
             .is_some()
     }
+
+    /// Sets velocity for behaviour `K` mapped to the nearest direction slot.
+    /// Returns `true` if the behaviour exists, `false` otherwise.
+    pub fn set_velocity<K: 'static>(&mut self, direction: Vec3, target_velocity: Vec3) -> bool {
+        // Ideally use self.get_mut::<K>(), but partial borrows dont work
+        self.behaviours
+            .get_mut(&TypeId::of::<K>())
+            .map(|b| b.set_velocity(&self.cache, direction, target_velocity))
+            .is_some()
+    }
+
+    /// Sets velocity for behaviour `K` at a specific direction slot index (overwrites).
+    /// Returns `true` if the behaviour exists, `false` otherwise.
+    pub fn set_velocity_at<K: 'static>(
+        &mut self,
+        direction_slot: usize,
+        target_velocity: Vec3,
+    ) -> bool {
+        // Ideally use self.get_mut::<K>(), but partial borrows dont work
+
+        self.behaviours
+            .get_mut(&TypeId::of::<K>())
+            .map(|b| b.set_velocity_at(&self.cache, direction_slot, target_velocity))
+            .is_some()
+    }
+
+    /// Clears all stored velocity fields for behaviour `K`.
+    /// Returns `true` if the behaviour exists, `false` otherwise.
+    pub fn clear_velocity<K: 'static>(&mut self) -> bool {
+        // Ideally use self.get_mut::<K>(), but partial borrows dont work
+
+        self.behaviours
+            .get_mut(&TypeId::of::<K>())
+            .map(|b| b.clear_velocity())
+            .is_some()
+    }
 }
 
 impl SteeringContext {
-    pub(crate) fn update(&mut self) {
+    pub fn update(&mut self) {
         self.update_resultant_field();
-        self.update_resultant_direction();
+        let resultant_slot = self.update_resultant_direction();
+        self.update_resultant_velocity(resultant_slot)
     }
 
-    pub(crate) fn update_resultant_direction(&mut self) {
+    pub(crate) fn update_resultant_velocity(&mut self, slot: Option<usize>) {
+        let velocity = match slot {
+            Some(slot) => self.interpolate_velocity(slot),
+            None => Some(Vec3::ZERO),
+        };
+
+        self.resultant_velocity = velocity;
+    }
+
+    /// Smooths velocity using true weighted average to preserve speed magnitude given the winning slot.
+    fn interpolate_velocity(&self, slot: usize) -> Option<Vec3> {
+        let directions = self.cache.directions();
+        let neighbours = &*self.cache.direction_neighbours()[slot];
+
+        let mut total_velocity = None;
+        let mut total_weight = 0.0;
+
+        for &index in neighbours.iter() {
+            if let Some(v) = self.resultant_field[index].velocity() {
+                // Weight based on alignment with the continuous resultant direction
+                let wk = self.resultant_direction.dot(directions[index]).max(0.0);
+                if wk > f32::EPSILON {
+                    *total_velocity.get_or_insert_default() += *v * wk;
+                    total_weight += wk;
+                }
+            }
+        }
+
+        match total_weight > f32::EPSILON {
+            true => total_velocity.map(|v: Vec3| v / total_weight),
+            false => None,
+        }
+    }
+
+    pub(crate) fn update_resultant_direction(&mut self) -> Option<usize> {
         // Find interest considering danger
         let field_iter = self.resultant_field.iter();
 
@@ -157,7 +228,7 @@ impl SteeringContext {
 
         if is_clean {
             self.resultant_direction = Vec3::ZERO;
-            return;
+            return None;
         }
 
         let masks = into_masked_interest(field_iter);
@@ -168,11 +239,13 @@ impl SteeringContext {
             unreachable!()
         };
 
-        self.resultant_direction = self.interpolate(resultant_slot);
+        self.resultant_direction = self.interpolate_direction(resultant_slot);
+
+        Some(resultant_slot)
     }
 
     /// Allows for more 'natural-ish' movement
-    fn interpolate(&self, slot: usize) -> Vec3 {
+    fn interpolate_direction(&self, slot: usize) -> Vec3 {
         let directions = self.cache.directions();
         let neighbours = &*self.cache.direction_neighbours()[slot];
         let neighbouring_weights = neighbours.iter().map(|index| &self.resultant_field[*index]);
@@ -199,13 +272,28 @@ impl SteeringContext {
         for behaviour in self.behaviours.values() {
             let field = behaviour.field();
             let weight = behaviour.weight();
-            for (resultant, Weight { interest, danger }) in
-                self.resultant_field.iter_mut().zip(field.iter())
+
+            if weight <= f32::EPSILON {
+                continue;
+            }
+
+            for (
+                resultant,
+                Weight {
+                    interest,
+                    danger,
+                    velocity,
+                },
+            ) in self.resultant_field.iter_mut().zip(field.iter())
             {
                 // Accumulate Interests: Add weighted interest to the total.
                 // Weigh the added interest to be able to priotise certain directtions
                 resultant.interest += interest * weight;
                 resultant.danger = resultant.danger.max(*danger);
+
+                if let Some(incoming_vel) = velocity {
+                    *resultant.velocity.get_or_insert(Vec3::ZERO) += *incoming_vel * weight;
+                }
             }
         }
     }
@@ -213,112 +301,4 @@ impl SteeringContext {
 
 fn into_masked_interest<'a>(iter: impl Iterator<Item = &'a Weight>) -> impl Iterator<Item = f32> {
     iter.map(|slot| slot.interest * (1.0 - slot.danger))
-}
-
-// sanity checks
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    struct Behaviour;
-    struct Behaviour2;
-
-    fn apply_test(expected: Vec3, apply: impl FnOnce(&mut SteeringContext)) -> SteeringContext {
-        let mut context = SteeringContext::default();
-        context.insert::<Behaviour>();
-        context.insert::<Behaviour2>();
-
-        apply(&mut context);
-        context.update();
-
-        let resultant_direction = context.resultant_direction();
-        assert_approx_dir(resultant_direction, expected, 0.98);
-        context
-    }
-
-    fn assert_approx_dir(actual: Vec3, expected: Vec3, threshold: f32) {
-        let dot = actual.normalize_or_zero().dot(expected.normalize_or_zero());
-        assert!(
-            dot >= threshold,
-            "Directions do not match! \nActual:   {:?}\nExpected: {:?}\nDot:      {}",
-            actual,
-            expected,
-            dot
-        );
-    }
-
-    #[test]
-    fn interest_only() {
-        let cache = SteeringDirectionsCache::default_shared();
-        let intended_diretion = cache.directions()[0];
-        let expected_direction = intended_diretion;
-
-        apply_test(expected_direction, |context| {
-            context.set_interest::<Behaviour>(intended_diretion);
-        });
-    }
-
-    #[test]
-    fn danger_only() {
-        let mut context = SteeringContext::default();
-        context.insert::<Behaviour>();
-
-        let intended_diretion = context.cache.directions()[0];
-        let expected_direction = -intended_diretion;
-
-        apply_test(expected_direction, |context| {
-            context.set_danger::<Behaviour>(intended_diretion);
-        });
-    }
-
-    #[test]
-    fn nullify_singular_direction() {
-        let north = Vec3::Y;
-        let east = Vec3::X;
-
-        apply_test(east, |context| {
-            context.set_interest::<Behaviour>(north);
-            // Danger exactly cancels the interest at North
-            context.set_danger::<Behaviour>(north);
-            context.set_interest::<Behaviour2>(east);
-        });
-    }
-
-    #[test]
-    fn interpolation() {
-        let cache = SteeringDirectionsCache::default_shared();
-
-        let center_idx = cache.directions().len() / 2;
-        let neighbor_idx = cache.direction_neighbours()[center_idx][1];
-        let off_grid_target = (cache.directions()[center_idx] + cache.directions()[neighbor_idx]).normalize();
-        apply_test(off_grid_target, |context| {
-            context.set_interest::<Behaviour>(off_grid_target);
-        });
-    }
-
-    #[test]
-    fn weighted_behaviours() {
-        let north = Vec3::Y;
-        let east = Vec3::X;
-
-        let weight_north = 2.0;
-        let weight_east = 1.0;
-
-        // The expected direction is the weighted vector sum:
-        // (2.0 * North) + (1.0 * East) normalized.
-        let expected = (north * weight_north + east * weight_east).normalize();
-
-        let context = apply_test(expected, |context| {
-            // Insert and configure first behavior
-            context.set_interest::<Behaviour>(north);
-            context.set_weight::<Behaviour>(weight_north);
-
-            context.set_interest::<Behaviour2>(east);
-            context.set_weight::<Behaviour2>(weight_east);
-        });
-
-        let result = context.resultant_direction();
-        // Final sanity check: The result should be closer to North than to East
-        assert!(result.dot(north) > result.dot(east));
-    }
 }

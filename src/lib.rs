@@ -3,10 +3,12 @@ mod behaviours;
 mod clusters;
 mod commands;
 mod context;
-mod debug;
 mod prediction;
 mod systems;
 mod utils;
+
+#[cfg(feature = "debug")]
+pub mod debug;
 
 pub use avian3d;
 pub use bevy;
@@ -17,7 +19,6 @@ pub use behaviours::*;
 pub use clusters::*;
 pub use commands::*;
 pub use context::*;
-pub use debug::*;
 pub use prediction::*;
 
 pub(crate) use utils::*;
@@ -38,21 +39,18 @@ impl Plugin for SteeringPlugin {
         app.add_observer(on_insert_cluster);
         app.add_observer(on_discard_cluster);
 
-        app.add_systems(FixedPreUpdate,update_cluster_data);
-        
+        // TODO: use system stes or smth
+        app.add_systems(FixedPreUpdate, update_cluster_data);
+
         let behaviour_update = (
             Seek::steering_behaviour_update,
             Flee::steering_behaviour_update,
-
             Pursuit::steering_behaviour_update,
             Evade::steering_behaviour_update,
-
             Brake::steering_behaviour_update,
             Throttle::steering_behaviour_update,
-
             Cohere::steering_behaviour_update,
             Scatter::steering_behaviour_update,
-
             /*
             behaviours::align::update,
             behaviours::seperate::update,

@@ -60,6 +60,19 @@ impl SteeringDirectionsCache {
     pub fn direction_neighbours(&self) -> &[Box<[usize]>] {
         &self.direction_neighbours
     }
+
+    /// Finds the slot nearest `direction`
+    pub fn nearest_direction_slot(&self, direction: Vec3) -> usize {
+        let slot = self
+            .directions
+            .iter()
+            .enumerate()
+            .max_by(|(_, a), (_, b)| a.dot(direction).total_cmp(&b.dot(direction)))
+            .map(|(i, _)| i)
+            .expect("direction set is non-empty");
+
+        slot
+    }
 }
 
 impl SteeringDirectionsCache {

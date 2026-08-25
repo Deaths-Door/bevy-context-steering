@@ -4,6 +4,8 @@ use super::*;
 
 use bevy::ecs::{lifecycle::HookContext, system::SystemParam, world::DeferredWorld};
 
+pub(crate) type ActiveAgentsQuery<'w, 's, D, F = ()> = Query<'w, 's, D, (With<SteeringAgent>, F)>;
+
 pub(crate) fn on_add_into_steering_context<T: 'static>(
     mut world: DeferredWorld,
     HookContext { entity, .. }: HookContext,

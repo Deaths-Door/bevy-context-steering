@@ -3,10 +3,11 @@ mod behaviours;
 mod clusters;
 mod commands;
 mod context;
-mod motion;
 mod plugin;
 mod prediction;
 mod utils;
+
+pub mod motion;
 
 #[cfg(feature = "debug")]
 pub mod debug;
@@ -20,7 +21,6 @@ pub use behaviours::*;
 pub use clusters::*;
 pub use commands::*;
 pub use context::*;
-pub use motion::*;
 pub use plugin::*;
 pub use prediction::*;
 

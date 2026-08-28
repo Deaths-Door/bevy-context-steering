@@ -11,7 +11,7 @@ pub struct SteeringPlugin;
 
 impl Plugin for SteeringPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(ManyRelationshipsPlugin );
+        app.add_plugins(ManyRelationshipsPlugin);
 
         app.init_resource::<ClusterMap>();
         app.add_observer(on_insert_cluster);
@@ -42,9 +42,16 @@ impl Plugin for SteeringPlugin {
         );
 
         app.add_systems(FixedUpdate, behaviour_update.in_set(SteeringBehaviorSet));
+
+        let motion_apply = (
+            motion::MotionKinematic::apply,
+            motion::MotionOmnidirectional::apply,
+            motion::MotionDirectional::apply,
+        );
+
         app.add_systems(
             FixedPostUpdate,
-            update_resultant_field.in_set(SteeringPhysicsSet),
+            (update_resultant_field, motion_apply).in_set(SteeringPhysicsSet),
         );
     }
 }

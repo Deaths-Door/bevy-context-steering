@@ -42,6 +42,7 @@ impl MotionOmnidirectional {
         let dt = time.delta_secs();
 
         query.par_iter_mut().for_each(|mut agent| {
+            let current_velocity = agent.forces.linear_velocity();
             let target_direction = agent.context.resultant_direction();
 
             let target_velocity = agent
@@ -49,7 +50,7 @@ impl MotionOmnidirectional {
                 .resultant_velocity()
                 .unwrap_or(target_direction * **agent.max_linear_speed);
 
-            let delta_velocity = target_velocity - **agent.velocity;
+            let delta_velocity = target_velocity - current_velocity;
 
             let max_acceleration = agent.motion.max_acceleration;
             let acceleration =
@@ -60,7 +61,7 @@ impl MotionOmnidirectional {
             agent.forces.apply_local_force(force);
 
             if agent.motion.face_movement_direction
-                && let Some(facing_direction) = agent.velocity.try_normalize()
+                && let Some(facing_direction) = current_velocity.try_normalize()
             {
                 let up = agent.transform.up();
                 let target_rot = agent.transform.looking_to(facing_direction, up).rotation;
@@ -85,8 +86,6 @@ pub(crate) struct MotionQueryData {
 
     max_linear_speed: &'static MaxLinearSpeed,
     max_angular_speed: &'static MaxAngularSpeed,
-
-    velocity: &'static LinearVelocity,
 
     transform: &'static mut Transform,
 

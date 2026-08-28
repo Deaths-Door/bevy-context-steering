@@ -50,7 +50,9 @@ impl MotionDirectional {
                 let max_angular_speed = **agent.max_angular_speed;
                 let target_ang_velocity =
                     (angle_error / dt).clamp(-max_angular_speed, max_angular_speed);
-                let current_ang_velocity = agent.angular_velocity.dot(axis);
+
+            
+                let current_ang_velocity = agent.forces.angular_velocity().dot(axis);
 
                 let angular_acceleration = (target_ang_velocity - current_ang_velocity) / dt;
                 let inertia = agent.computed_angular_inertia.value();
@@ -71,7 +73,7 @@ impl MotionDirectional {
 
             // PROJECT onto the forward axis (this splits it so we only care about forward/reverse intent)
             let target_forward_speed = target_velocity.dot(forward);
-            let current_forward_speed = agent.velocity.dot(forward);
+            let current_forward_speed = agent.forces.linear_velocity().dot(forward);
 
             let delta_v = target_forward_speed - current_forward_speed;
             let desired_accel = delta_v / dt;
@@ -99,9 +101,6 @@ pub(crate) struct MotionQueryData {
 
     max_linear_speed: &'static MaxLinearSpeed,
     max_angular_speed: &'static MaxAngularSpeed,
-
-    velocity: &'static LinearVelocity,
-    angular_velocity: &'static AngularVelocity,
 
     transform: &'static mut Transform,
 

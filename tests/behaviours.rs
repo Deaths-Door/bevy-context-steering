@@ -3,7 +3,7 @@ use bevy::{
     app::PanicHandlerPlugin, mesh::MeshPlugin, prelude::*, scene::ScenePlugin,
     time::TimeUpdateStrategy,
 };
-use bevy_context_steering::*;
+use bevy_context_steering::{motion::MotionKinematic, *};
 use test_case::test_case;
 
 trait SteeringScenarioExt {
@@ -55,12 +55,8 @@ impl SteeringScenarioExt for App {
             RigidBody::Dynamic,
             Mass(1.0),
             Collider::sphere(COLLIDER_RADIUS),
-            SteeringAgent {
-                max_speed: 20.0,
-                max_force: Vec3::splat(50.0),
-                acceleration_wn: 15.0,
-                ..default()
-            },
+            SteeringAgent::default(),
+            MotionKinematic::default(),
             // Crucial: Avian needs damping to stop the "wobble"
             LinearDamping(1.0),
             AngularDamping(1.0),
@@ -511,11 +507,9 @@ fn test_throttle(target_velocity: Vec3, agent_initial_velocity: Vec3) {
 
     let agent_id = app.spawn_agent(|mut commands| {
         commands.insert((
-
             LinearVelocity(agent_initial_velocity),
             Throttle::new(target_id),
         ));
-
     });
 
     app.step();

@@ -51,7 +51,7 @@ impl Plugin for SteeringPlugin {
 
         app.add_systems(
             FixedPostUpdate,
-            (update_resultant_field, motion_apply).in_set(SteeringPhysicsSet),
+            (update_resultant_field, motion_apply).chain().in_set(SteeringPhysicsSet),
         );
     }
 }

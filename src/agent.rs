@@ -1,17 +1,7 @@
 use super::*;
 
-#[derive(Component, Reflect)]
-/*TODO:Neighborhood */
+/// A marker component designating an entity as an active, movable steering agent.
+#[derive(Component, Reflect, Default)]
 #[require(SteeringContext)]
 
-pub struct SteeringAgent {
-    pub neighbour_hood_radius: f32,
-}
-
-impl Default for SteeringAgent {
-    fn default() -> Self {
-        Self {
-            neighbour_hood_radius: 10.0,
-        }
-    }
-}
+pub struct SteeringAgent;

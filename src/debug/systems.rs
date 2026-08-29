@@ -1,5 +1,27 @@
+use crate::motion::{MotionDirectional, MotionKinematic, MotionOmnidirectional};
+
 use super::*;
 use std::ops::Deref;
+
+pub(super) fn debug_missing_motion_on_agent(
+    query: ActiveAgentsQuery<(
+        Entity,
+        Option<&Name>,
+        AnyOf<(&MotionKinematic, &MotionOmnidirectional, &MotionDirectional)>,
+    )>,
+) {
+    query.par_iter().for_each(
+        |(entity, name, (kinematic, omnidirectional, directional))| {
+            if kinematic.is_none() && omnidirectional.is_none() && directional.is_none() {
+                if let Some(agent_name) = name {
+                    warn!("Agent '{agent_name}' ({entity:?}) is missing a motion component!");
+                } else {
+                    warn!("Agent {entity:?} is missing a motion component!");
+                }
+            }
+        },
+    );
+}
 
 pub(super) fn debug_steering_context(
     mut gizmos: Gizmos,

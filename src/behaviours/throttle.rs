@@ -43,10 +43,13 @@ impl Throttle{
 
                 // Calculate the velocity delta vector
                 let desired_steering = target_velocity - current_velocity;
+                let desired_velocity = target_velocity ; 
 
                 // Pass the delta force so interest pushes OPPOSITE excess velocity 
                 // and TOWARD missing velocity
                 agent.context.set_interest::<Self>(desired_steering);
+                agent.context.set_velocity::<Self>(desired_steering, desired_velocity);
+
             })
     }
 }

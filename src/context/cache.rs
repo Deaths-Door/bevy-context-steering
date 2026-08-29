@@ -4,7 +4,7 @@ use super::*;
 
 /// A precomputed, immutable set of sample directions used by [`SteeringContext`]
 /// for context-steering interest/danger/velocity maps.
-pub struct SteeringDirectionsCache {
+pub struct SteeringCache {
     /// Unit-length sample directions, indexed by slot.
     directions: Box<[Vec3]>,
     /// For each slot, the indices of its neighbouring slots including self (used for
@@ -14,7 +14,7 @@ pub struct SteeringDirectionsCache {
 
 /// Identifies a particular shape/resolution of direction set, used as the
 /// cache key in [`DirectionsRegistry`]. Two requests for the same kind will
-/// always resolve to the same shared [`SteeringDirectionsCache`] instance.
+/// always resolve to the same shared [`SteeringCache`] instance.
 #[derive(Hash, Eq, PartialEq, Clone)]
 enum DirectionSetKind {
     /// Directions sampled over a 3D sphere (via a Fibonacci sphere).
@@ -23,13 +23,13 @@ enum DirectionSetKind {
     Plane { count: usize },
 }
 
-/// Process-wide cache of built [`SteeringDirectionsCache`] instances, keyed by
+/// Process-wide cache of built [`SteeringCache`] instances, keyed by
 /// [`DirectionSetKind`]. Built lazily on first access; entries are built once
 /// and shared (via `Arc`) for the lifetime of the process.
 static DIRECTIONS_CACHE_REGISTRY: LazyLock<RwLock<DirectionsRegistry>> =
     LazyLock::new(|| RwLock::new(HashMap::new()));
 
-type DirectionsRegistry = HashMap<DirectionSetKind, Arc<SteeringDirectionsCache>>;
+type DirectionsRegistry = HashMap<DirectionSetKind, Arc<SteeringCache>>;
 
 /// Acquires the registry for writing and runs `block` against it.
 fn registry_mut<O>(block: impl FnOnce(&mut DirectionsRegistry) -> O) -> O {
@@ -49,7 +49,7 @@ fn registry<O>(block: impl FnOnce(&DirectionsRegistry) -> O) -> O {
     (block)(registry.deref())
 }
 
-impl SteeringDirectionsCache {
+impl SteeringCache {
     /// Returns a slice of unit-length sample directions indexed by slot.
     pub fn directions(&self) -> &[Vec3] {
         &self.directions
@@ -75,7 +75,7 @@ impl SteeringDirectionsCache {
     }
 }
 
-impl SteeringDirectionsCache {
+impl SteeringCache {
     /// Returns the shared spherical direction set with `count` sample
     /// directions, building and caching it on first request.
     ///
@@ -106,13 +106,13 @@ impl SteeringDirectionsCache {
     }
 }
 
-impl SteeringDirectionsCache {
+impl SteeringCache {
     /// Builds a new Fibonacci-sphere-sampled direction set with `count`
     /// directions and precomputes per-slot neighbour adjacency.
     ///
     /// This is the actual (uncached) construction path; callers should go
-    /// through [`SteeringDirectionsCache::fibonacci_sphere`] or
-    /// [`SteeringDirectionsCache::default_shared`] instead of calling this
+    /// through [`SteeringCache::fibonacci_sphere`] or
+    /// [`SteeringCache::default_shared`] instead of calling this
     /// directly, so the result is shared via the registry.
     fn build_fibonacci_sphere(count: usize) -> Self {
         let directions = Self::fib_directions(count);

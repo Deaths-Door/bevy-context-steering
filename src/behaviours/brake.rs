@@ -19,7 +19,10 @@ impl Brake{
             .for_each(|mut agent|{
                 // TODO: change the way this works.. 
                 let velocity = **agent.velocity;
-                agent.context.set_interest::<Self>(-velocity);
+                let interest_direction = velocity;
+                agent.context.set_interest::<Self>(-interest_direction);
+                
+                agent.context.set_velocity::<Self>(interest_direction, Vec3::ZERO);
             })
     }
 }

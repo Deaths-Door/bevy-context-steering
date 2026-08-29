@@ -1,4 +1,5 @@
 use super::*;
+use std::ops::Deref;
 
 pub(super) fn debug_steering_context(
     mut gizmos: Gizmos,
@@ -32,7 +33,7 @@ pub(super) fn debug_steering_context(
         }
 
         for (type_id, style) in options.behaviors.iter().filter(|(_, style)| style.enabled) {
-            let Some(behaviour) = context.behaviours.get(type_id) else {
+            let Some(behaviour) = context.deref().get(type_id) else {
                 continue;
             };
 

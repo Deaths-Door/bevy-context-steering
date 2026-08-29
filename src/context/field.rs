@@ -9,7 +9,7 @@ impl SteeringField {
         Self((0usize..count).map(|_| Weight::default()).collect())
     }
 
-    pub fn from_cache(cache: &SteeringDirectionsCache) -> Self {
+    pub fn from_cache(cache: &SteeringCache) -> Self {
         Self::new(cache.directions().len())
     }
 }

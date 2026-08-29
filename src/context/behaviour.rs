@@ -27,19 +27,19 @@ impl SteeringBehaviour {
         }
     }
 
-    pub fn from_cache(cache: &SteeringDirectionsCache) -> Self {
+    pub fn from_cache(cache: &SteeringCache) -> Self {
         Self::new(cache.directions().len())
     }
 
     /// Assigns interest to each direction based on the given input  vector.
-    pub fn set_interest(&mut self, cache: &SteeringDirectionsCache, dir: Vec3) {
+    pub fn set_interest(&mut self, cache: &SteeringCache, dir: Vec3) {
         self.set_interest_with(cache, dir, overwrite);
     }
 
     /// Assigns interest to each direction based on the given input  vector.
     pub fn set_interest_with(
         &mut self,
-        cache: &SteeringDirectionsCache,
+        cache: &SteeringCache,
         dir: Vec3,
         combine: impl Fn(f32, f32) -> f32,
     ) {
@@ -56,13 +56,13 @@ impl SteeringBehaviour {
     }
 
     ///  Assigns danger to each direction based on the given input vector.
-    pub fn set_danger(&mut self, cache: &SteeringDirectionsCache, dir: Vec3) {
+    pub fn set_danger(&mut self, cache: &SteeringCache, dir: Vec3) {
         self.set_danger_with(cache, dir, overwrite);
     }
 
     pub fn set_danger_with(
         &mut self,
-        cache: &SteeringDirectionsCache,
+        cache: &SteeringCache,
         dir: Vec3,
         combine: impl Fn(f32, f32) -> f32,
     ) {
@@ -79,12 +79,7 @@ impl SteeringBehaviour {
 
     ///  Assigns velocity to the given direction
 
-    pub fn set_velocity(
-        &mut self,
-        cache: &SteeringDirectionsCache,
-        direction: Vec3,
-        target_velocity: Vec3,
-    ) {
+    pub fn set_velocity(&mut self, cache: &SteeringCache, direction: Vec3, target_velocity: Vec3) {
         let direction_slot = cache.nearest_direction_slot(direction);
         self.set_velocity_at(cache, direction_slot, target_velocity);
     }
@@ -92,7 +87,7 @@ impl SteeringBehaviour {
     ///  Assigns velocity to the given direction
     pub fn set_velocity_at(
         &mut self,
-        cache: &SteeringDirectionsCache,
+        cache: &SteeringCache,
         direction_slot: usize,
         target_velocity: Vec3,
     ) {
@@ -102,7 +97,7 @@ impl SteeringBehaviour {
     ///  Assigns velocity to the given direction
     pub fn set_velocity_with(
         &mut self,
-        cache: &SteeringDirectionsCache,
+        cache: &SteeringCache,
         direction_slot: usize,
         target_velocity: Vec3,
         combine: impl Fn(Vec3, Vec3) -> Vec3,

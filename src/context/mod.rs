@@ -24,11 +24,11 @@ use bevy::{
 /// spatial field used for decision making.
 #[derive(Component, Deref, DerefMut)]
 pub struct SteeringContext {
-    pub cache: Arc<SteeringDirectionsCache>,
+    pub cache: Arc<SteeringCache>,
 
     /// Active behaviors indexed by their unique type ID.
     #[deref]
-    pub behaviours: HashMap<TypeId, SteeringBehaviour>,
+    behaviours: HashMap<TypeId, SteeringBehaviour>,
 
     /// The scratchpad to calculate the final, weighted combination of all interest and danger samples.
     resultant_field: SteeringField,
@@ -39,13 +39,13 @@ pub struct SteeringContext {
 
 impl Default for SteeringContext {
     fn default() -> Self {
-        let cache = SteeringDirectionsCache::default_shared();
+        let cache = SteeringCache::default_shared();
         Self::new(cache)
     }
 }
 
 impl SteeringContext {
-    pub fn new(cache: Arc<SteeringDirectionsCache>) -> Self {
+    pub fn new(cache: Arc<SteeringCache>) -> Self {
         let resultant_field = SteeringField::from_cache(&cache);
 
         Self {

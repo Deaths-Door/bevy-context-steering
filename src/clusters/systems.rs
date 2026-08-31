@@ -2,12 +2,6 @@ use bevy_many_relationships::{IncomingRelationships, OutgoingRelationships};
 
 use super::*;
 
-#[derive(Component, Deref)]
-pub struct ClusterCentre(Vec3);
-
-#[derive(Component, Deref)]
-pub struct ClusterAverageVelocity(Vec3);
-
 #[derive(QueryData)]
 pub(crate) struct MemberClusterQueryData {
     transform: &'static GlobalTransform,

@@ -23,7 +23,7 @@ impl Plugin for SteeringPlugin {
 
         app.add_systems(
             FixedPreUpdate,
-            update_cluster_data.in_set(SteeringSpatialSet),
+            (update_cluster_data, update_neighbours).in_set(SteeringSpatialSet),
         );
 
         let behaviour_update = (
@@ -51,7 +51,9 @@ impl Plugin for SteeringPlugin {
 
         app.add_systems(
             FixedPostUpdate,
-            (update_resultant_field, motion_apply).chain().in_set(SteeringPhysicsSet),
+            (update_resultant_field, motion_apply)
+                .chain()
+                .in_set(SteeringPhysicsSet),
         );
     }
 }

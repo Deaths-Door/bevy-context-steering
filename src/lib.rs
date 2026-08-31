@@ -6,6 +6,7 @@ mod context;
 mod plugin;
 mod prediction;
 mod utils;
+mod neighbours;
 
 pub mod motion;
 
@@ -23,6 +24,7 @@ pub use commands::*;
 pub use context::*;
 pub use plugin::*;
 pub use prediction::*;
+pub use neighbours::*;
 
 pub(crate) use utils::*;
 

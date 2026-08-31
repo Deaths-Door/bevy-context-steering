@@ -4,6 +4,12 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssi
 #[derive(Debug, Reflect, Deref, DerefMut, Clone, Copy, PartialEq, PartialOrd)]
 pub struct ClusterWeight(pub f32);
 
+impl ClusterWeight {
+    pub const fn new(_0: f32) -> Self {
+        Self(_0)
+    }
+}
+
 impl Default for ClusterWeight {
     fn default() -> Self {
         Self(1.0)

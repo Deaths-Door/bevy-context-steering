@@ -1,84 +1,9 @@
-use avian3d::prelude::*;
-use bevy::{
-    app::PanicHandlerPlugin, mesh::MeshPlugin, prelude::*, scene::ScenePlugin,
-    time::TimeUpdateStrategy,
-};
-use bevy_context_steering::{motion::MotionKinematic, *};
+mod shared;
+
+use shared::*;
 use test_case::test_case;
 
-trait SteeringScenarioExt {
-    fn test() -> Self;
-    fn step_n(&mut self, frames: usize);
-    fn step(&mut self) {
-        self.step_n(30);
-    }
-
-    fn spawn_agent(&mut self, with: impl FnOnce(EntityCommands<'_>)) -> Entity;
-
-    fn get<T: Component>(&mut self, entity: Entity) -> &T;
-}
-
-impl SteeringScenarioExt for App {
-    fn test() -> Self {
-        let mut app = App::new();
-        app.add_plugins((
-            MinimalPlugins,
-            PanicHandlerPlugin,
-            AssetPlugin::default(),
-            TransformPlugin,
-            MeshPlugin,
-            ScenePlugin,
-        ));
-
-        app.add_plugins((PhysicsPlugins::default(), SteeringPlugin));
-
-        app.insert_resource(Gravity::ZERO);
-        app.insert_resource(TimeUpdateStrategy::ManualDuration(
-            std::time::Duration::from_secs_f32(1.0 / 60.0),
-        ));
-
-        app.finish();
-        app.cleanup();
-
-        app
-    }
-
-    fn step_n(&mut self, count: usize) {
-        for _ in 0..count {
-            self.update();
-        }
-    }
-
-    fn spawn_agent(&mut self, with: impl FnOnce(EntityCommands<'_>)) -> Entity {
-        let mut commands = self.world_mut().commands();
-        let commands = commands.spawn((
-            RigidBody::Dynamic,
-            Mass(1.0),
-            Collider::sphere(COLLIDER_RADIUS),
-            SteeringAgent::default(),
-            MotionKinematic::default(),
-            // Crucial: Avian needs damping to stop the "wobble"
-            LinearDamping(1.0),
-            AngularDamping(1.0),
-        ));
-
-        let id = commands.id();
-        (with)(commands);
-
-        self.world_mut().flush();
-
-        id
-    }
-
-    fn get<T: Component>(&mut self, entity: Entity) -> &T {
-        self.world().get(entity).expect("Failed to get component")
-    }
-}
-
 const ALIGNMENT_THRESHOLD: f32 = 0.97;
-
-const COLLIDER_RADIUS: f32 = 1.0;
-const MOVEMENT_TOLERANCE: f32 = 2.0 * COLLIDER_RADIUS + 0.05;
 
 fn assert_alignment(alignment: f32) {
     assert!(
@@ -658,3 +583,5 @@ fn test_cohere(agents_data: Vec<(Vec3, Vec<(ClusterId, ClusterWeight)>)>) {
         }
     }
 }
+
+

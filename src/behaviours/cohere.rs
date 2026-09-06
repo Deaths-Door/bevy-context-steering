@@ -11,6 +11,7 @@ use super::*;
 #[component(on_add = on_add_into_steering_context::<Self>, on_remove = on_remove_from_steering_context::<Self>)]
 #[require(SteeringContext)]
 pub struct Cohere {
+    // TODO: INSTEAD OF THIS USE MULTIRELATIONSHIPS FOR THIS INSTEAD 
     clusters: HashMap<ClusterId, ClusterWeight>,
 }
 

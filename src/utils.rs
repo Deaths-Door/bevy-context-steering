@@ -2,7 +2,7 @@ use std::ops::{Add, Div, Mul};
 
 use super::*;
 
-use bevy::ecs::{lifecycle::HookContext, system::SystemParam, world::DeferredWorld};
+use bevy::ecs::{lifecycle::HookContext, world::DeferredWorld};
 
 pub(crate) type ActiveAgentsQuery<'w, 's, D, F = ()> = Query<'w, 's, D, (With<SteeringAgent>, F)>;
 

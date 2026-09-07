@@ -568,3 +568,106 @@ fn test_cohere(
         );
     }
 }
+
+
+#[test_case(
+    Vec3::ZERO, 
+    Vec3::splat(5.0),
+    &[], 
+    false 
+    ; "no_neighbors_should_not_move"
+)]
+#[test_case(
+    Vec3::ZERO, 
+    Vec3::splat(5.0),
+    &[Vec3::new(2.0, 0.0, 0.0)], 
+    true 
+    ; "single_neighbor_repels_agent_negative_x"
+)]
+#[test_case(
+    Vec3::ZERO, 
+    Vec3::splat(5.0),
+    &[Vec3::new(10.0, 0.0, 0.0)], 
+    false 
+    ; "neighbor_outside_range_ignored"
+)]
+#[test_case(
+    Vec3::ZERO, 
+    Vec3::splat(5.0),
+    &[Vec3::new(2.0, 1.0, 0.0), Vec3::new(2.0, -1.0, 0.0)], 
+    true 
+    ; "asymmetric_cluster_repels_agent"
+)]
+#[test_case(
+    Vec3::ZERO, 
+    Vec3::splat(5.0),
+    &[
+        Vec3::new(2.0, 0.0, 0.0), 
+        Vec3::new(-2.0, 0.0, 0.0),
+        Vec3::new(0.0, 2.0, 0.0), 
+        Vec3::new(0.0, -2.0, 0.0)
+    ], 
+    false 
+    ; "symmetric_surrounding_neighbors_equilibrium"
+)]
+fn test_separate(
+    agent_translation: Vec3, 
+    half_extent: Vec3,
+    neighbours: &[Vec3], 
+    should_move: bool
+) {
+    let mut app = App::test();
+
+    let agent = app.agent(|commands| {
+        commands
+            .neighbour(LayerMask::DEFAULT, half_extent)
+            .insert((
+                Scatter::new(),
+                Transform::from_translation(agent_translation),
+            ))
+    });
+
+    for translation in neighbours {
+        app.agent(|commands| {
+            commands.insert(Transform::from_translation(*translation))
+        });
+    }
+
+    app.step();
+
+    let new_translation = app.get::<Transform>(agent).translation;
+
+    if should_move {
+        assert_ne!(
+            new_translation, agent_translation,
+            "Agent expected to steer away from neighbors, but stayed stationary"
+        );
+
+        let valid_neighbours: Vec<Vec3> = neighbours
+            .iter()
+            .copied()
+            .filter(|p| {
+                let diff = (*p - agent_translation).abs();
+                diff.x <= half_extent.x && diff.y <= half_extent.y && diff.z <= half_extent.z
+            })
+            .collect();
+
+        let displacement = new_translation - agent_translation;
+        let center = valid_neighbours.iter().sum::<Vec3>() / valid_neighbours.len() as f32;
+        
+        // Vector pointing FROM agent TO neighborhood center
+        let cluster_dir = (center - agent_translation).normalize_or_zero();
+
+        // Dot product MUST BE NEGATIVE (displacement points away from cluster_dir)
+        let dot = displacement.normalize_or_zero().dot(cluster_dir);
+        assert!(
+            dot < -0.7,
+            "Agent did not flee from cluster. Expected dot < -0.7 (repulsion), got {dot:.2}"
+        );
+    } else {
+        assert_eq!(
+            new_translation, agent_translation,
+            "Agent moved when expected to remain stationary"
+        );
+    }
+}

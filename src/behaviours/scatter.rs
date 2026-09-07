@@ -38,5 +38,8 @@ impl cohere::Behaviour for Scatter {
         let factor = self.falloff.outwards_factor(distance);
         let target_direction = target_direction * factor;
         context.set_danger::<Self>(target_direction);
+
+        // Needed for cases, where there is no other behaviours, since one expects a movement, but only danger shouldnt do anything 
+        context.set_interest::<Self>(-target_direction);
     }
 }

@@ -462,126 +462,109 @@ fn test_throttle(target_velocity: Vec3, agent_initial_velocity: Vec3) {
         agent_velocity.length()
     );
 }
-
-// 1. Basic Cohesion: Two agents move toward their shared center
 #[test_case(
-    vec![
-        (vec3(-5.0, 0.0, 0.0), vec![(ClusterId::new(1), ClusterWeight::new(1.0))]),
-        (vec3(5.0, 0.0, 0.0), vec![(ClusterId::new(1), ClusterWeight::new(1.0))]),
-    ];
-    "Cohere - Two agents in same cluster move toward each other"
+    Vec3::ZERO, 
+    Vec3::splat(5.0),
+    &[], 
+    false 
+    ; "no_neighbors_should_not_move"
 )]
-// 2. Multi-Cluster Isolation: Separate clusters act independently without cross-talk
 #[test_case(
-    vec![
-        (vec3(-10.0, 0.0, 0.0), vec![(ClusterId::new(1), ClusterWeight::new(1.0))]),
-        (vec3(10.0, 0.0, 0.0), vec![(ClusterId::new(1), ClusterWeight::new(1.0))]),
-        (vec3(0.0, 0.0, 10.0), vec![(ClusterId::new(2), ClusterWeight::new(1.0))]),
-        (vec3(0.0, 0.0, -10.0), vec![(ClusterId::new(2), ClusterWeight::new(1.0))]),
-    ];
-    "Cohere - Distinct clusters cohere independently"
+    Vec3::ZERO, 
+    Vec3::splat(5.0),
+    &[Vec3::new(3.0, 0.0, 0.0)], 
+    true 
+    ; "single_neighbor_inside_range"
 )]
-// 3. Complete Isolation: Single agent in a cluster ignores other clusters
 #[test_case(
-    vec![
-        (vec3(-10.0, 0.0, 0.0), vec![(ClusterId::new(1), ClusterWeight::new(1.0))]),
-        (vec3(10.0, 0.0, 0.0), vec![(ClusterId::new(2), ClusterWeight::new(1.0))]),
-    ];
-    "Cohere - Agents in separate clusters ignore each other"
+    Vec3::ZERO, 
+    Vec3::splat(5.0),
+    &[Vec3::new(10.0, 0.0, 0.0)], 
+    false 
+    ; "single_neighbor_outside_range_ignored"
 )]
-// 4. Asymmetrical Cluster Weights: Agent strongly pulled toward higher-weighted cluster
 #[test_case(
-    vec![
-        (
-            vec3(0.0, 0.0, 0.0),
-            vec![
-                (ClusterId::new(1), ClusterWeight::new(3.0)), // Heavy pull toward X = -10
-                (ClusterId::new(2), ClusterWeight::new(1.0)), // Light pull toward Y = 10
-            ],
-        ),
-        (vec3(-10.0, 0.0, 0.0), vec![(ClusterId::new(1), ClusterWeight::new(1.0))]),
-        (vec3(0.0, 10.0, 0.0), vec![(ClusterId::new(2), ClusterWeight::new(1.0))]),
-    ];
-    "Cohere - Agent with unequal weights steers heavily toward dominant cluster center"
+    Vec3::ZERO, 
+    Vec3::splat(5.0),
+    &[Vec3::new(3.0, 2.0, 0.0), Vec3::new(3.0, -2.0, 0.0)], 
+    true 
+    ; "asymmetric_cluster_inside_range"
 )]
-// 5. Zero-Distance / Co-located Agents: Edge case handling for zero division
 #[test_case(
-    vec![
-        (vec3(0.0, 0.0, 0.0), vec![(ClusterId::new(1), ClusterWeight::new(1.0))]),
-        (vec3(0.0, 0.0, 0.0), vec![(ClusterId::new(1), ClusterWeight::new(1.0))]),
-    ];
-    "Cohere - Co-located agents in same cluster remain stationary without crashing"
+    Vec3::ZERO, 
+    Vec3::splat(5.0),
+    &[
+        Vec3::new(3.0, 0.0, 0.0), 
+        Vec3::new(-3.0, 0.0, 0.0),
+        Vec3::new(0.0, 3.0, 0.0), 
+        Vec3::new(0.0, -3.0, 0.0)
+    ], 
+    false 
+    ; "symmetric_surrounding_neighbors_equilibrium"
 )]
-// 6. Agent Already at Center: No steering force generated when already at cluster center
 #[test_case(
-    vec![
-        (vec3(0.0, 0.0, 0.0), vec![(ClusterId::new(1), ClusterWeight::new(1.0))]),
-        (vec3(-10.0, 0.0, 0.0), vec![(ClusterId::new(1), ClusterWeight::new(1.0))]),
-        (vec3(10.0, 0.0, 0.0), vec![(ClusterId::new(1), ClusterWeight::new(1.0))]),
-    ];
-    "Cohere - Agent sitting at exact cluster center generates no velocity"
+    Vec3::ZERO, 
+    Vec3::splat(15.0),
+    &[Vec3::new(10.0, 0.0, 0.0)], 
+    true 
+    ; "neighbor_detected_with_larger_custom_half_extent"
 )]
-fn test_cohere(agents_data: Vec<(Vec3, Vec<(ClusterId, ClusterWeight)>)>) {
+fn test_cohere(
+    agent_translation: Vec3, 
+    half_extent: Vec3,
+    neighbours: &[Vec3], 
+    should_move: bool
+) {
     let mut app = App::test();
 
-    for (pos, cluster_memberships) in &agents_data {
-        app.spawn_agent(|mut commands| {
-            let mut cohere = Cohere::default();
-            for (id, weight) in cluster_memberships {
-                cohere.insert(*id, *weight);
-                (&mut commands).enter_cluster(*id);
-            }
-            commands.insert((Transform::from_translation(*pos), cohere));
-        });
-    }
+    let agent = app.agent(|commands| {
+        commands
+            .neighbour(LayerMask::DEFAULT,half_extent)
+            .insert((
+                Cohere::new(),
+                Transform::from_translation(agent_translation),
+            ))
+    });
+
+    neighbours.iter().for_each(|translation| {
+        app.agent(|commands| commands.insert(Transform::from_translation(*translation)));
+    });
 
     app.step();
 
-    let mut agent_query = app
-        .world_mut()
-        .query::<(&Transform, &Cohere, &SteeringContext)>();
+    let new_translation = app.get::<Transform>(agent).translation;
 
-    let mut cluster_centres = app.world_mut().query::<&ClusterCentre>();
-    let cluster_map = app.world().resource::<ClusterMap>();
+    if should_move {
+        // Guard against empty neighbours to prevent panic/division by zero
+        assert!(
+            !neighbours.is_empty(),
+            "should_move was true, but neighbours slice was empty!"
+        );
 
-    for (transform, cohere, context) in agent_query.iter(app.world()) {
-        let steering_dir = context.resultant_direction();
+        // Invariant 1: Agent MUST move
+        assert_ne!(
+            new_translation, agent_translation,
+            "Agent should steer when neighbors exist"
+        );
 
-        // Collecting active cluster positions for this agent
-        let mut active_centres = Vec::new();
-        for (cluster_id, _weight) in cohere.iter() {
-            if let Some(&entity) = cluster_map.get(cluster_id) {
-                if let Ok(centre) = cluster_centres.get(app.world(), entity) {
-                    active_centres.push(**centre);
-                }
-            }
-        }
+        let displacement = new_translation - agent_translation;
 
-        if active_centres.is_empty() {
-            // Property 1: No clusters = No steering
-            assert_eq!(
-                steering_dir,
-                Vec3::ZERO,
-                "Agent without clusters must not steer"
-            );
-        } else {
-            // Property 2: Vector must pull towards the general bounding region of clusters
-            let agent_pos = transform.translation;
+        // Calculate general target direction using centroid half-space
+        let centre = neighbours.iter().sum::<Vec3>() / neighbours.len() as f32;
+        let target_dir = (centre - agent_translation).normalize_or_zero();
 
-            for centre in active_centres {
-                let dir_to_centre = (centre - agent_pos).normalize_or_zero();
+        // Invariant 2: Directional alignment threshold
+        let dot = displacement.normalize_or_zero().dot(target_dir);
 
-                // If steering vector exists, it should not point directly AWAY from its clusters
-                if steering_dir != Vec3::ZERO && dir_to_centre != Vec3::ZERO {
-                    let alignment = steering_dir.normalize().dot(dir_to_centre);
-                    assert!(
-                        alignment > -f32::EPSILON,
-                        "Steering vector points away from cluster center!"
-                    );
-                }
-            }
-        }
+        assert!(
+            dot > 0.7,
+            "Agent steering misaligned with flock center. Expected dot > 0.7, got {dot:.2}"
+        );
+    } else {
+        // Invariant 3: Agent should stay stationary (e.g. no neighbors or balanced forces)
+        assert_eq!(
+            new_translation, agent_translation,
+            "Agent moved when it should have stayed stationary"
+        );
     }
 }
-
-

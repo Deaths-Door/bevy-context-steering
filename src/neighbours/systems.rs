@@ -82,6 +82,7 @@ fn neighbour(
             ClosestPoints::WithinMargin(a, b) => Some((a, b)),
             ClosestPoints::Intersecting
                 if let Ok(Some(contact)) = {
+                    // TODO: allow tuning this??
                     let prediction_distance = 0.01;
                     let contact = contact(
                         collider1,

@@ -20,7 +20,7 @@ pub struct Neighbour {
 #[derive(
     Component, Reflect, Clone, Copy, Debug, Deref, DerefMut, PartialEq, Eq, PartialOrd, Ord,
 )]
-pub struct NeighbourhoodFilter(LayerMask);
+pub struct NeighbourhoodFilter(pub LayerMask);
 
 /// How far around the agent its neighbourhood extends. Authored/configured,
 /// relative to the agent — does not itself move.

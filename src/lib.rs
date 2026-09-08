@@ -7,6 +7,7 @@ mod plugin;
 mod prediction;
 mod utils;
 mod neighbours;
+mod obstacles;
 
 pub mod motion;
 

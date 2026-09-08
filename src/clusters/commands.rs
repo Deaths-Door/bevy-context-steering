@@ -1,3 +1,4 @@
+use bevy::ecs::component::Mutable;
 use bevy_many_relationships::ManyRelatedEntityCommands;
 
 use super::*;
@@ -14,6 +15,20 @@ pub trait ClusterEntityCommandsExt {
 
     /// Same as [Self::enter_cluster] but for batching
     fn exit_clusters(self, cluster_ids: impl IntoIterator<Item = ClusterId> + Send + 'static);
+
+    /// Sets the weight of a specific cluster property behavior for this entity.
+    fn set_cluster_property_weight<B: Component<Mutability = Mutable> + AsMut<ClusterWeight>>(
+        self,
+        cluster_id: ClusterId,
+        weight: ClusterWeight,
+    );
+
+    /// Modifies the weight of a cluster property behavior using a closure.
+    fn update_cluster_property_weight<B: Component<Mutability = Mutable> + AsMut<ClusterWeight>>(
+        self,
+        cluster_id: ClusterId,
+        modify: impl FnOnce(&mut ClusterWeight) + Send + 'static,
+    );
 }
 
 impl<'a> ClusterEntityCommandsExt for EntityCommands<'a> {
@@ -31,6 +46,22 @@ impl<'a> ClusterEntityCommandsExt for EntityCommands<'a> {
 
     fn exit_clusters(mut self, cluster_ids: impl IntoIterator<Item = ClusterId> + Send + 'static) {
         (&mut self).exit_clusters(cluster_ids);
+    }
+
+    fn set_cluster_property_weight<B: Component<Mutability = Mutable> + AsMut<ClusterWeight>>(
+        mut self,
+        cluster_id: ClusterId,
+        weight: ClusterWeight,
+    ) {
+        (&mut self).update_cluster_property_weight::<B>(cluster_id, move |source| *source = weight)
+    }
+
+    fn update_cluster_property_weight<B: Component<Mutability = Mutable> + AsMut<ClusterWeight>>(
+        mut self,
+        cluster_id: ClusterId,
+        modify: impl FnOnce(&mut ClusterWeight) + Send + 'static,
+    ) {
+        (&mut self).update_cluster_property_weight::<B>(cluster_id, modify)
     }
 }
 
@@ -79,6 +110,38 @@ impl<'a> ClusterEntityCommandsExt for &'_ mut EntityCommands<'a> {
                     .entity(source_entity)
                     .remove_outgoing_to::<ClusterMember>(cluster_entity);
             }
+        });
+    }
+
+    fn set_cluster_property_weight<B: Component<Mutability = Mutable> + AsMut<ClusterWeight>>(
+        self,
+        cluster_id: ClusterId,
+        weight: ClusterWeight,
+    ) {
+        self.update_cluster_property_weight::<B>(cluster_id, move |s| *s = weight);
+    }
+
+    fn update_cluster_property_weight<B: Component<Mutability = Mutable> + AsMut<ClusterWeight>>(
+        self,
+        cluster_id: ClusterId,
+        modify: impl FnOnce(&mut ClusterWeight) + Send + 'static,
+    ) {
+        self.commands().queue(move |world: &mut World| {
+            let Some(&cluster_entity) = world
+                .get_resource::<ClusterMap>()
+                .and_then(|clusters| clusters.get(&cluster_id))
+            else {
+                warn!("Cannot get property from cluster {cluster_id:?}");
+                return;
+            };
+
+            let Some(mut component) = world.get_mut::<B>(cluster_entity) else {
+                warn!("Component missing on cluster entity {cluster_entity:?}");
+                return;
+            };
+
+            let weight = component.as_mut().as_mut();
+            modify(weight)
         });
     }
 }

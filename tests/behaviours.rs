@@ -716,7 +716,7 @@ fn test_cohere_cluster(
     let agent = app.agent(|commands| {
         commands
             .insert((
-                CohereCluster::default(),
+                CohereCluster::from_iter(cluster_ids.iter().copied()),
                 Transform::from_translation(agent_translation),
             ))
     });
@@ -767,3 +767,86 @@ fn test_cohere_cluster(
         );
     }
 }
+
+
+#[test_case(
+    Vec3::ZERO, 
+    &[], 
+    false 
+    ; "no_clusters_should_not_move"
+)]
+#[test_case(
+    Vec3::ZERO, 
+    &[Vec3::new(10.0, 0.0, 0.0)], 
+    false 
+    ; "cluster_outside_range_ignored"
+)]
+
+#[test_case(
+    Vec3::ZERO, 
+    &[
+        Vec3::new(2.0, 0.0, 0.0), 
+        Vec3::new(-2.0, 0.0, 0.0),
+        Vec3::new(0.0, 2.0, 0.0), 
+        Vec3::new(0.0, -2.0, 0.0)
+    ], 
+    false 
+    ; "symmetric_surrounding_clusters_equilibrium"
+)]
+fn test_separate_cluster(
+    agent_translation: Vec3, 
+    cluster_entity_translations: &[Vec3], 
+    should_move: bool
+) {
+    let mut app = App::test();
+
+    let cluster_ids = cluster_entity_translations.iter().enumerate().map(|a| ClusterId::new(a.0)).collect::<Vec<_>>();
+
+    let agent = app.agent(|commands| {
+         commands
+            .insert((
+                ScatterCluster::from_iter(cluster_ids.iter().copied()),
+                Transform::from_translation(agent_translation),
+            ))
+    });
+
+    for (translation,cluster_id ) in cluster_entity_translations.iter().zip(cluster_ids) {
+        app.agent(|commands| {
+            commands.enter_cluster(cluster_id);
+            commands.insert(Transform::from_translation(*translation))
+        });
+
+    }
+    app.step();
+
+    let new_translation = app.get::<Transform>(agent).translation;
+
+    if should_move {
+        assert_ne!(
+            new_translation, agent_translation,
+            "Agent expected to steer away from clusters, but stayed stationary"
+        );
+
+
+        
+        // Calculate general target direction using centroid half-space
+        let centre = cluster_entity_translations.iter().sum::<Vec3>() / cluster_entity_translations.len() as f32;
+
+        let displacement = new_translation - agent_translation;        
+        // Vector pointing FROM agent TO clusterhood center
+        let cluster_dir = (centre - agent_translation).normalize_or_zero();
+
+        // Dot product MUST BE NEGATIVE (displacement points away from cluster_dir)
+        let dot = displacement.normalize_or_zero().dot(cluster_dir);
+        assert!(
+            dot < -0.7,
+            "Agent did not flee from cluster. Expected dot < -0.7 (repulsion), got {dot:.2}"
+        );
+    } else {
+        assert_eq!(
+            new_translation, agent_translation,
+            "Agent moved when expected to remain stationary"
+        );
+    }
+}
+

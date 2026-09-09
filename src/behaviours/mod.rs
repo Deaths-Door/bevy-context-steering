@@ -13,6 +13,7 @@ mod cohere;
 mod scatter;
 
 mod cohere_cluster;
+mod scatter_cluster;
 
 use super::*;
 
@@ -31,3 +32,4 @@ pub use cohere::*;
 pub use scatter::*;
 
 pub use cohere_cluster::*;
+pub use scatter_cluster::*;

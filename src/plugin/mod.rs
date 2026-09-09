@@ -37,11 +37,13 @@ impl Plugin for SteeringPlugin {
             Cohere::steering_behaviour_update,
             Scatter::steering_behaviour_update,
             CohereCluster::steering_behaviour_update,
+            ScatterCluster::steering_behaviour_update
         );
 
         app.add_systems(FixedUpdate, behaviour_update.in_set(SteeringBehaviorSet));
 
         app.add_observer(on_add_cluster_add_default_behaviour_weight::<CohereClusterWeight>);
+        app.add_observer(on_add_cluster_add_default_behaviour_weight::<ScatterClusterWeight>);
 
         let motion_apply = (
             motion::MotionKinematic::apply,

@@ -8,7 +8,6 @@ use super::*;
 #[require(SteeringContext)]
 pub struct CohereCluster(HashSet<ClusterId>);
 
-// TODO: auto insert this on coherecluster spawn? with default values?
 /// Inserted on the cluster entity itself
 #[derive(Component, Debug, Reflect, Default)]
 pub struct CohereClusterWeight {

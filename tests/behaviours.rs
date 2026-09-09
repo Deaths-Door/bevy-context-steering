@@ -671,3 +671,99 @@ fn test_separate(
         );
     }
 }
+
+
+#[test_case(
+    Vec3::ZERO, 
+    &[], 
+    false 
+    ; "no_clusters_should_not_move"
+)]
+
+#[test_case(
+    Vec3::ZERO, 
+    &[Vec3::new(10.0, 0.0, 0.0)], 
+    false 
+    ; "single_cluster_outside_range_ignored"
+)]
+#[test_case(
+    Vec3::ZERO, 
+    &[Vec3::new(3.0, 2.0, 0.0), Vec3::new(3.0, -2.0, 0.0)], 
+    false 
+    ; "asymmetric_cluster_inside_range"
+)]
+#[test_case(
+    Vec3::ZERO, 
+    &[
+        Vec3::new(3.0, 0.0, 0.0), 
+        Vec3::new(-3.0, 0.0, 0.0),
+        Vec3::new(0.0, 3.0, 0.0), 
+        Vec3::new(0.0, -3.0, 0.0)
+    ], 
+    false 
+    ; "symmetric_surrounding_clusters_equilibrium"
+)]
+
+fn test_cohere_cluster(
+    agent_translation: Vec3, 
+    cluster_entity_translations: &[Vec3], 
+    should_move: bool
+) {
+    let mut app = App::test();
+
+    let cluster_ids = cluster_entity_translations.iter().enumerate().map(|a| ClusterId::new(a.0)).collect::<Vec<_>>();
+
+    let agent = app.agent(|commands| {
+        commands
+            .insert((
+                CohereCluster::default(),
+                Transform::from_translation(agent_translation),
+            ))
+    });
+
+    for (translation,cluster_id ) in cluster_entity_translations.iter().zip(cluster_ids) {
+        app.agent(|commands| {
+            commands.enter_cluster(cluster_id);
+            commands.insert(Transform::from_translation(*translation))
+        });
+
+    }
+
+    app.step();
+
+    let new_translation = app.get::<Transform>(agent).translation;
+
+    if should_move {
+        // Guard against empty clusters to prevent panic/division by zero
+        assert!(
+            !cluster_entity_translations.is_empty(),
+            "should_move was true, but clusters slice was empty!"
+        );
+
+        // Invariant 1: Agent MUST move
+        assert_ne!(
+            new_translation, agent_translation,
+            "Agent should steer when clusters exist"
+        );
+
+        let displacement = new_translation - agent_translation;
+
+        // Calculate general target direction using centroid half-space
+        let centre = cluster_entity_translations.iter().sum::<Vec3>() / cluster_entity_translations.len() as f32;
+        let target_dir = (centre - agent_translation).normalize_or_zero();
+
+        // Invariant 2: Directional alignment threshold
+        let dot = displacement.normalize_or_zero().dot(target_dir);
+
+        assert!(
+            dot > 0.7,
+            "Agent steering misaligned with flock center. Expected dot > 0.7, got {dot:.2}"
+        );
+    } else {
+        // Invariant 3: Agent should stay stationary (e.g. no clusters or balanced forces)
+        assert_eq!(
+            new_translation, agent_translation,
+            "Agent moved when it should have stayed stationary"
+        );
+    }
+}

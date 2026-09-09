@@ -1,14 +1,14 @@
 mod agent;
-mod behaviours;
 mod clusters;
 mod commands;
 mod context;
+mod neighbours;
+mod obstacles;
 mod plugin;
 mod prediction;
 mod utils;
-mod neighbours;
-mod obstacles;
 
+pub mod behaviours;
 pub mod motion;
 
 #[cfg(feature = "debug")]
@@ -19,13 +19,12 @@ pub use bevy;
 pub use bevy_many_relationships as many_relationships;
 
 pub use agent::*;
-pub use behaviours::*;
 pub use clusters::*;
 pub use commands::*;
 pub use context::*;
+pub use neighbours::*;
 pub use plugin::*;
 pub use prediction::*;
-pub use neighbours::*;
 
 pub(crate) use utils::*;
 

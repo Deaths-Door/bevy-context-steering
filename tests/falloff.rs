@@ -1,5 +1,5 @@
 use avian3d::parry::math::ComplexField;
-use bevy_context_steering::Falloff;
+use bevy_context_steering::behaviours::Falloff;
 use test_case::test_case;
 
 const T: f32 = 10.0;

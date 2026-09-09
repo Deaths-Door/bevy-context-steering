@@ -2,6 +2,10 @@
 name = "bevy_context_steering"
 version = "0.1.0"
 edition = "2024"
+license = "Apache 2.0"
+description = "A 3D (and 2D) agent context steering framework for Bevy + Avian3D."
+documentation = "https://docs.rs/bevy_context_steering/latest/bevy_context_steering/"
+repository = "https://github.com/Deaths-Door/bevy-context-steering"
 
 [workspace.dependencies]
 avian3d = { version = "0.7.0", default-features = false, features = [

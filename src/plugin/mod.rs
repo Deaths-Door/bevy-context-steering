@@ -4,6 +4,7 @@ mod systems;
 pub use sets::*;
 
 use super::*;
+use crate::behaviours::*;
 use bevy_many_relationships::ManyRelationshipsPlugin;
 use systems::*;
 
@@ -35,13 +36,12 @@ impl Plugin for SteeringPlugin {
             Throttle::steering_behaviour_update,
             Cohere::steering_behaviour_update,
             Scatter::steering_behaviour_update,
-            /*
-            behaviours::align::update,
-            behaviours::seperate::update,
-            behaviours::standoff::position::update, */
+            CohereCluster::steering_behaviour_update,
         );
 
         app.add_systems(FixedUpdate, behaviour_update.in_set(SteeringBehaviorSet));
+
+        app.add_observer(on_add_cluster_add_default_behaviour_weight::<CohereClusterWeight>);
 
         let motion_apply = (
             motion::MotionKinematic::apply,

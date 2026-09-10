@@ -4,7 +4,7 @@ mod systems;
 pub use sets::*;
 
 use super::*;
-use crate::behaviours::*;
+use crate::{behaviours::*, obstacles::update_obstacles};
 use bevy_many_relationships::ManyRelationshipsPlugin;
 use systems::*;
 
@@ -24,7 +24,7 @@ impl Plugin for SteeringPlugin {
 
         app.add_systems(
             FixedPreUpdate,
-            (update_cluster_data, update_neighbours).in_set(SteeringSpatialSet),
+            (update_cluster_data, update_neighbours, update_obstacles).in_set(SteeringSpatialSet),
         );
 
         let behaviour_update = (
@@ -37,7 +37,7 @@ impl Plugin for SteeringPlugin {
             Cohere::steering_behaviour_update,
             Scatter::steering_behaviour_update,
             CohereCluster::steering_behaviour_update,
-            ScatterCluster::steering_behaviour_update
+            ScatterCluster::steering_behaviour_update,
         );
 
         app.add_systems(FixedUpdate, behaviour_update.in_set(SteeringBehaviorSet));

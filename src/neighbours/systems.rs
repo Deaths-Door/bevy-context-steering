@@ -7,12 +7,12 @@ use crate::neighbours::{Neighbour, NeighbourhoodExtents, NeighbourhoodFilter};
 use super::*;
 
 pub(crate) fn update_neighbours(
-    mut agent_query: ActiveAgentsQuery<NeighbourhoodQueryData>,
+    agent_query: ActiveAgentsQuery<NeighbourhoodQueryData>,
     hit_query: Query<HitQueryData>,
     spatial_query: SpatialQuery,
     commands: ParallelCommands,
 ) {
-    agent_query.par_iter_mut().for_each(|agent| {
+    agent_query.par_iter().for_each(|agent| {
         let filter =
             SpatialQueryFilter::from_mask(**agent.filter).with_excluded_entities([agent.entity]);
 
@@ -20,11 +20,7 @@ pub(crate) fn update_neighbours(
         let aabb = ColliderAabb::new(agent.global_transform.translation(), **agent.bounds);
 
         spatial_query.aabb_intersections_with_aabb_callback(aabb, |potential_hit| {
-            if let Ok(hit) = hit_query.get(potential_hit)
-                && filter.test(potential_hit, *hit.layers)
-            {
-                current_hits.insert(potential_hit);
-            }
+            current_hits.insert(potential_hit);
             true
         });
 

@@ -9,15 +9,17 @@ pub struct EntityPrediction {
 
 impl Default for EntityPrediction {
     fn default() -> Self {
-        Self {
-            align_threshold: 0.95,
-            ahead_threshold: 0.0,
-            max_prediction_time: 2.0,
-        }
+        Self::DEFAULT
     }
 }
 
 impl EntityPrediction {
+    pub(crate) const DEFAULT: Self = Self {
+        align_threshold: 0.95,
+        ahead_threshold: 0.0,
+        max_prediction_time: 2.0,
+    };
+
     pub fn predict_position(
         &self,
         agent_translation: Vec3,

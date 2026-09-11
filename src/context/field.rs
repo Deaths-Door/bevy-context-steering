@@ -13,3 +13,33 @@ impl SteeringField {
         Self::new(cache.directions().len())
     }
 }
+
+impl FromIterator<Weight> for SteeringField {
+    fn from_iter<T: IntoIterator<Item = Weight>>(iter: T) -> Self {
+        Self(FromIterator::from_iter(iter))
+    }
+}
+
+impl IntoIterator for SteeringField {
+    type Item = Weight;
+    type IntoIter = std::vec::IntoIter<Weight>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a SteeringField {
+    type Item = &'a Weight;
+    type IntoIter = std::slice::Iter<'a, Weight>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a mut SteeringField {
+    type Item = &'a mut Weight;
+    type IntoIter = std::slice::IterMut<'a, Weight>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter_mut()
+    }
+}

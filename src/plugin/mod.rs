@@ -38,6 +38,7 @@ impl Plugin for SteeringPlugin {
             Scatter::steering_behaviour_update,
             CohereCluster::steering_behaviour_update,
             ScatterCluster::steering_behaviour_update,
+            AvoidObstacles::steering_behaviour_update,
         );
 
         app.add_systems(FixedUpdate, behaviour_update.in_set(SteeringBehaviorSet));

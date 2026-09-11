@@ -31,13 +31,38 @@ impl SteeringBehaviour {
         Self::new(cache.directions().len())
     }
 
-    /// Assigns interest to each direction based on the given input  vector.
+    /// Set interest at each direction, overwriting any previous value
     pub fn set_interest(&mut self, cache: &SteeringCache, dir: Vec3) {
-        self.set_interest_with(cache, dir, overwrite);
+        self.interest_with(cache, dir, overwrite);
     }
 
-    /// Assigns interest to each direction based on the given input  vector.
-    pub fn set_interest_with(
+    /// Update interest at each direction, adding any previous value
+    pub fn interest(&mut self, cache: &SteeringCache, dir: Vec3) {
+        self.interest_with(cache, dir, |a, b| a + b);
+    }
+
+    /// Set danger at each direction, overwriting any previous value
+    pub fn set_danger(&mut self, cache: &SteeringCache, dir: Vec3) {
+        self.danger_with(cache, dir, overwrite);
+    }
+
+    /// Update the danger at each direction, using the max of the previous and new value
+    pub fn danger(&mut self, cache: &SteeringCache, dir: Vec3) {
+        self.danger_with(cache, dir, |a, b| a.max(b));
+    }
+
+    ///  Sets velocity at the given direction, overwriting any previous value
+    pub fn set_velocity(&mut self, cache: &SteeringCache, direction: Vec3, target_velocity: Vec3) {
+        self.velocity_with(cache, direction, target_velocity, overwrite);
+    }
+
+    /// Update velocity at the given direction, averaging the two values
+    pub fn velocity(&mut self, cache: &SteeringCache, direction: Vec3, target_velocity: Vec3) {
+        self.velocity_with(cache, direction, target_velocity, |a, b| (a + b) * 0.5);
+    }
+
+    /// Update interest while taking into account the previous value
+    pub fn interest_with(
         &mut self,
         cache: &SteeringCache,
         dir: Vec3,
@@ -55,12 +80,8 @@ impl SteeringBehaviour {
         }
     }
 
-    ///  Assigns danger to each direction based on the given input vector.
-    pub fn set_danger(&mut self, cache: &SteeringCache, dir: Vec3) {
-        self.set_danger_with(cache, dir, overwrite);
-    }
-
-    pub fn set_danger_with(
+    /// Update danger with taking into account the previous value
+    pub fn danger_with(
         &mut self,
         cache: &SteeringCache,
         dir: Vec3,
@@ -77,25 +98,19 @@ impl SteeringBehaviour {
         }
     }
 
-    ///  Assigns velocity to the given direction
-
-    pub fn set_velocity(&mut self, cache: &SteeringCache, direction: Vec3, target_velocity: Vec3) {
-        let direction_slot = cache.nearest_direction_slot(direction);
-        self.set_velocity_at(cache, direction_slot, target_velocity);
-    }
-
-    ///  Assigns velocity to the given direction
-    pub fn set_velocity_at(
+    pub fn velocity_with(
         &mut self,
         cache: &SteeringCache,
-        direction_slot: usize,
+        direction: Vec3,
         target_velocity: Vec3,
+        combine: impl Fn(Vec3, Vec3) -> Vec3,
     ) {
-        self.set_velocity_with(cache, direction_slot, target_velocity, overwrite);
+        let direction_slot = cache.nearest_direction_slot(direction);
+        self.velocity_at_with(cache, direction_slot, target_velocity, combine);
     }
 
-    ///  Assigns velocity to the given direction
-    pub fn set_velocity_with(
+    /// Update velocity with taking into considersation the previous value
+    fn velocity_at_with(
         &mut self,
         cache: &SteeringCache,
         direction_slot: usize,
@@ -124,21 +139,21 @@ impl SteeringBehaviour {
 
     /// Resets all interest values across the field to `0.0`.
     pub fn clear_interest(&mut self) {
-        for Weight { interest, .. } in self.field.iter_mut() {
+        for Weight { interest, .. } in &mut self.field {
             *interest = 0.0;
         }
     }
 
     /// Resets all danger values across the field to `0.0`.
     pub fn clear_danger(&mut self) {
-        for Weight { danger, .. } in self.field.iter_mut() {
+        for Weight { danger, .. } in &mut self.field {
             *danger = 0.0;
         }
     }
 
     /// Clears all velocity entries written to this behaviour.
     pub fn clear_velocity(&mut self) {
-        for slot in self.field.iter_mut() {
+        for slot in &mut self.field {
             slot.velocity = None;
         }
     }
@@ -159,7 +174,7 @@ impl SteeringBehaviour {
     }
 
     /// Returns a mutable reference to the underlying [`SteeringField`].
-    pub fn field_mut(&mut self) -> &mut SteeringField {
+    pub const fn field_mut(&mut self) -> &mut SteeringField {
         &mut self.field
     }
 }

@@ -100,66 +100,69 @@ impl SteeringContext {
         self.get_mut::<K>().map(|v| v.set_weight(weight)).is_some()
     }
 
-    /// Sets the interest direction vector for behaviour `K`. Returns `true` if updated, `false` otherwise.
+    /// Sets the interest direction vector for behaviour `K`, overwriting any previous value.
+    /// Returns `true` if updated, `false` otherwise.
     pub fn set_interest<K: 'static>(&mut self, dir: Vec3) -> bool {
         // Ideally use self.get_mut::<K>(), but partial borrows dont work
+
         self.behaviours
             .get_mut(&TypeId::of::<K>())
             .map(|behaviour| behaviour.set_interest(&self.cache, dir))
             .is_some()
     }
 
-    /// Sets the danger direction vector for behaviour `K`. Returns `true` if updated, `false` otherwise.
+    /// Updates the interest direction vector for behaviour `K`, adding to any previous value.
+    /// Returns `true` if updated, `false` otherwise.
+    pub fn interest<K: 'static>(&mut self, dir: Vec3) -> bool {
+        // Ideally use self.get_mut::<K>(), but partial borrows dont work
+
+        self.behaviours
+            .get_mut(&TypeId::of::<K>())
+            .map(|behaviour| behaviour.interest(&self.cache, dir))
+            .is_some()
+    }
+
+    /// Sets the danger direction vector for behaviour `K`, overwriting any previous value.
+    /// Returns `true` if updated, `false` otherwise.
     pub fn set_danger<K: 'static>(&mut self, dir: Vec3) -> bool {
         // Ideally use self.get_mut::<K>(), but partial borrows dont work
 
         self.behaviours
             .get_mut(&TypeId::of::<K>())
-            .map(|v| v.set_danger(&self.cache, dir))
+            .map(|behaviour| behaviour.set_danger(&self.cache, dir))
             .is_some()
     }
 
-    /// Clears the interest direction vector for behaviour `K`. Returns `true` if updated, `false` otherwise.
-    pub fn clear_interest<K: 'static>(&mut self) -> bool {
+    /// Updates the danger direction vector for behaviour `K`, using the max of previous and new values.
+    /// Returns `true` if updated, `false` otherwise.
+    pub fn danger<K: 'static>(&mut self, dir: Vec3) -> bool {
         // Ideally use self.get_mut::<K>(), but partial borrows dont work
 
         self.behaviours
             .get_mut(&TypeId::of::<K>())
-            .map(|v| v.clear_interest())
+            .map(|behaviour| behaviour.danger(&self.cache, dir))
             .is_some()
     }
 
-    /// Clears the danger direction vector for behaviour `K`. Returns `true` if updated, `false` otherwise.
-    pub fn clear_danger<K: 'static>(&mut self) -> bool {
-        // Ideally use self.get_mut::<K>(), but partial borrows dont work
-        self.behaviours
-            .get_mut(&TypeId::of::<K>())
-            .map(|v| v.clear_danger())
-            .is_some()
-    }
-
-    /// Sets velocity for behaviour `K` mapped to the nearest direction slot.
-    /// Returns `true` if the behaviour exists, `false` otherwise.
+    /// Sets velocity for behaviour `K` mapped to the given direction, overwriting any previous value.
+    /// Returns `true` if updated, `false` otherwise.
     pub fn set_velocity<K: 'static>(&mut self, direction: Vec3, target_velocity: Vec3) -> bool {
         // Ideally use self.get_mut::<K>(), but partial borrows dont work
+
         self.behaviours
             .get_mut(&TypeId::of::<K>())
             .map(|b| b.set_velocity(&self.cache, direction, target_velocity))
             .is_some()
     }
 
-    /// Sets velocity for behaviour `K` at a specific direction slot index (overwrites).
-    /// Returns `true` if the behaviour exists, `false` otherwise.
-    pub fn set_velocity_at<K: 'static>(
-        &mut self,
-        direction_slot: usize,
-        target_velocity: Vec3,
-    ) -> bool {
+    /// Updates velocity for behaviour `K` mapped to the given direction, averaging the two values.
+    /// Returns `true` if updated, `false` otherwise.
+    pub fn velocity<K: 'static>(&mut self, direction: Vec3, target_velocity: Vec3) -> bool {
         // Ideally use self.get_mut::<K>(), but partial borrows dont work
 
         self.behaviours
             .get_mut(&TypeId::of::<K>())
-            .map(|b| b.set_velocity_at(&self.cache, direction_slot, target_velocity))
+            .map(|b| b.velocity(&self.cache, direction, target_velocity))
             .is_some()
     }
 
@@ -171,6 +174,27 @@ impl SteeringContext {
         self.behaviours
             .get_mut(&TypeId::of::<K>())
             .map(|b| b.clear_velocity())
+            .is_some()
+    }
+
+    /// Clears the interest direction vector for behaviour `K`.
+    /// Returns `true` if updated, `false` otherwise.
+    pub fn clear_interest<K: 'static>(&mut self) -> bool {
+        // Ideally use self.get_mut::<K>(), but partial borrows dont work
+
+        self.behaviours
+            .get_mut(&TypeId::of::<K>())
+            .map(|behaviour| behaviour.clear_interest())
+            .is_some()
+    }
+
+    /// Clears the danger direction vector for behaviour `K`.
+    /// Returns `true` if updated, `false` otherwise.
+    pub fn clear_danger<K: 'static>(&mut self) -> bool {
+        // Ideally use self.get_mut::<K>(), but partial borrows dont work
+        self.behaviours
+            .get_mut(&TypeId::of::<K>())
+            .map(|behaviour| behaviour.clear_danger())
             .is_some()
     }
 }

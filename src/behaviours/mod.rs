@@ -15,6 +15,8 @@ mod scatter;
 mod cohere_cluster;
 mod scatter_cluster;
 
+mod avoid_obstacle;
+
 use super::*;
 
 pub use falloff::*;
@@ -33,3 +35,5 @@ pub use scatter::*;
 
 pub use cohere_cluster::*;
 pub use scatter_cluster::*;
+
+pub use avoid_obstacle::*;

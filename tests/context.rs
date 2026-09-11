@@ -149,44 +149,6 @@ fn velocity_by_direction_matches_interest_peak() {
     );
 }
 
-/// Tests that `set_velocity_at` correctly targets the exact slot index.
-#[test]
-fn velocity_at_slot_matches_interest_peak() {
-    let mut context = SteeringContext::default();
-    context.insert::<Behaviour>();
-
-    let slot = 0;
-    let direction = context.cache.directions()[slot];
-    let target_velocity = direction * 3.5;
-
-    context.set_interest::<Behaviour>(direction);
-    context.set_velocity_at::<Behaviour>(slot, target_velocity);
-    context.update();
-
-    let resolved = context
-        .resultant_velocity()
-        .expect("expected a resolved velocity");
-    assert!(
-        (resolved - target_velocity).length() < 1e-3,
-        "expected {target_velocity:?}, got {resolved:?}"
-    );
-}
-
-/// A slot with no resolved direction resolves velocity to None, even if velocity data exists.
-#[test]
-fn velocity_without_resolved_direction_is_none() {
-    let mut context = SteeringContext::default();
-    context.insert::<Behaviour>();
-
-    let slot = 0;
-    let target_velocity = context.cache.directions()[slot] * 5.0;
-
-    context.set_velocity_at::<Behaviour>(slot, target_velocity);
-    context.update();
-
-    assert_eq!(context.resultant_direction(), Vec3::ZERO);
-    assert_eq!(context.resultant_velocity(), None);
-}
 
 /// A slot with interest but no velocity write resolves to None ("no opinion").
 #[test]
@@ -221,32 +183,5 @@ fn explicit_zero_velocity_is_some_zero_not_none() {
         context.resultant_velocity(),
         Some(Vec3::ZERO),
         "explicit zero-velocity write should resolve as Some(ZERO), not None"
-    );
-}
-
-/// Velocity written to a neighbouring slot contributes to the resolution when interest
-/// peaks at an adjacent slot, weighted by directional alignment (`dot`).
-#[test]
-fn velocity_near_winning_slot_contributes_via_weighted_average() {
-    let mut context = SteeringContext::default();
-    context.insert::<Behaviour>();
-
-    let winning_slot = 0;
-    let winning_dir = context.cache.directions()[winning_slot];
-    let near_slot = context.cache.direction_neighbours()[winning_slot]
-        .iter()
-        .copied()
-        .find(|&s| s != winning_slot)
-        .expect("expected a real neighbour to exist");
-
-    // Interest peaks at winning_slot
-    context.set_interest::<Behaviour>(winning_dir);
-    // Velocity written at the neighbour slot spreads to winning_slot via neighbour spreading
-    context.set_velocity_at::<Behaviour>(near_slot, Vec3::ONE * 6.0);
-    context.update();
-
-    assert!(
-        context.resultant_velocity().is_some(),
-        "nearby velocity contribution should be interpolated based on resultant direction alignment"
     );
 }

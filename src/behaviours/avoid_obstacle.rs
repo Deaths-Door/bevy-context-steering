@@ -11,7 +11,7 @@ use super::*;
 /// avoided at their *predicted* future position rather than where they are
 /// right now; obstacles without a velocity component are
 /// avoided at their current hit position, since there's nothing to predict.
-#[derive(Component, Debug, Clone, Reflect)]
+#[derive(Component, Debug, Clone, Reflect, Default)]
 #[reflect(Component, Debug)]
 #[component(
     on_add = on_add_into_steering_context::<Self>, 

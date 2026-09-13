@@ -70,7 +70,8 @@ impl FromIterator<ClusterId> for CohereCluster {
 pub(crate) struct BehaviourSystemParm<'w, 's, T: Component> {
     cluster_map: Res<'w, ClusterMap>,
     agent_query: ActiveAgentsQuery<'w, 's, BehaviourQueryData<T>>,
-    cluster_query: ClusterQuery<'w, 's, (&'static ClusterCentre, &'static CohereClusterWeight)>,
+    cluster_query:
+        ClusterQuery<'w, 's, (&'static SteeringGroupCentre, &'static CohereClusterWeight)>,
 }
 
 #[derive(QueryData)]

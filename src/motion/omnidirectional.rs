@@ -35,7 +35,7 @@ impl MotionOmnidirectional {
 }
 
 impl MotionOmnidirectional {
-    pub(crate) fn apply(
+    pub(crate) fn steering_motion_update(
         time: Res<Time>,
         mut query: ActiveAgentsQuery<MotionQueryData, With<Self>>,
     ) {

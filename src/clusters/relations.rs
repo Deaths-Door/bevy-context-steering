@@ -7,5 +7,10 @@ pub struct ClusterMember;
 /// The root entity acts as an organizational hub and holds aggregated cluster data
 /// useful for collective behaviors (e.g., `ClusterCentre`, `ClusterAverageVelocity`).
 #[derive(Component, Clone, Copy, PartialEq, Eq, Debug, Reflect, Deref)]
+#[require(
+    SteeringGroupCentre,
+    SteeringGroupMeanHeading,
+    SteeringGroupMeanVelocity
+)]
 #[component(immutable)]
 pub struct Cluster(pub ClusterId);

@@ -31,7 +31,7 @@ impl Default for MotionKinematic {
 }
 
 impl MotionKinematic {
-    pub(crate) fn apply(
+    pub(crate) fn steering_motion_update(
         mut query: ActiveAgentsQuery<DirectKinematicQueryData, With<MotionKinematic>>,
     ) {
         query.par_iter_mut().for_each(|mut agent| {

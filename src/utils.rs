@@ -10,14 +10,18 @@ use bevy::ecs::{
 pub(crate) type ActiveAgentsQuery<'w, 's, D, F = ()> = Query<'w, 's, D, (With<SteeringAgent>, F)>;
 pub(crate) type ClusterQuery<'w, 's, D, F = ()> = Query<'w, 's, D, (With<Cluster>, F)>;
 
-pub(crate) fn on_add_cluster_add_default_behaviour_weight<T: Component + Default>(
-    trigger: On<AddEvent, Cluster>,
+pub(crate) fn on_add_component_insert<A: Bundle, B: Bundle + Default>(
+    trigger: On<AddEvent, A>,
     mut commands: Commands,
-    query: Query<&T>,
 ) {
-    if query.get(trigger.entity).ok().is_none() {
-        commands.entity(trigger.entity).insert(T::default());
-    }
+    commands.entity(trigger.entity).insert(B::default());
+}
+
+pub(crate) fn on_remove_component_remove<A: Bundle, B: Bundle>(
+    trigger: On<AddEvent, A>,
+    mut commands: Commands,
+) {
+    commands.entity(trigger.entity).remove::<B>();
 }
 
 pub(crate) fn on_add_into_steering_context<T: 'static>(

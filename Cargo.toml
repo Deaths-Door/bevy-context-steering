@@ -30,4 +30,4 @@ bevy_many_relationships = { git = "https://github.com/JViggiani/bevy_many_relati
 
 [dev-dependencies]
 test-case = "3.3.1"
-bevy = { workspace = true , features = ["bevy_scene"]}
+bevy = { workspace = true , features = ["bevy_scene","debug"]}

@@ -1,5 +1,3 @@
-use bevy_many_relationships::OutgoingRelationships;
-
 use super::*;
 
 /// Steering behavior that pulls the agent toward the center of mass of its neighbourhood
@@ -48,15 +46,7 @@ where
     T: Component + Behaviour,
 {
     agent_query.par_iter_mut().for_each(|mut agent| {
-        let neighbourhood = agent.neighbourhood;
-        let sum_positions: Vec3 = neighbourhood
-            .iter()
-            .map(|(_, neighbour)| neighbour.hit_point)
-            .sum();
-
-        let length: f32 = neighbourhood.len() as f32;
-        let center = sum_positions / length;
-        let target_direction = center - agent.transform.translation;
+        let target_direction = **agent.centre - agent.transform.translation;
 
         agent
             .behaviour
@@ -68,7 +58,7 @@ where
 #[query_data(mutable)]
 pub(crate) struct BehaviourQueryData<T: Component> {
     behaviour: &'static T,
-    neighbourhood: &'static OutgoingRelationships<Neighbour>,
+    centre: &'static SteeringGroupCentre,
     transform: &'static Transform,
     context: &'static mut SteeringContext,
 }

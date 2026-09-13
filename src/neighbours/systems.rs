@@ -1,10 +1,55 @@
+use super::*;
+use crate::neighbours::{Neighbour, NeighbourhoodExtents, NeighbourhoodFilter};
 use avian3d::collision::collider::contact_query::{ClosestPoints, closest_points, contact};
 use bevy::ecs::entity::EntityHashSet;
-use bevy_many_relationships::{ManyRelatedEntityCommands, OutgoingRelationships};
+use bevy_many_relationships::{
+    IncomingRelationships, ManyRelatedEntityCommands, OutgoingRelationships,
+};
 
-use crate::neighbours::{Neighbour, NeighbourhoodExtents, NeighbourhoodFilter};
+#[derive(QueryData)]
+pub(crate) struct MemberClusterQueryData {
+    transform: &'static GlobalTransform,
+    velocity: &'static LinearVelocity,
+}
+#[derive(QueryData)]
+#[query_data(mutable)]
+pub(crate) struct NeighbourGroupQueryData {
+    relationships: &'static IncomingRelationships<Neighbour>,
+    centre: &'static mut SteeringGroupCentre,
+    average_velocity: &'static mut SteeringGroupMeanVelocity,
+    average_heading: &'static mut SteeringGroupMeanHeading,
+}
 
-use super::*;
+pub(crate) fn update_neighbour_properties(
+    mut query_group: ActiveAgentsQuery<NeighbourGroupQueryData>,
+    query_members: Query<MemberClusterQueryData, With<IncomingRelationships<Neighbour>>>,
+) {
+    query_group.par_iter_mut().for_each(|mut item| {
+        let mut total_centre = Vec3::ZERO;
+        let mut total_velocity = Vec3::ZERO;
+        let mut total_heading = Vec3::ZERO;
+        let mut count = 0u32;
+
+        query_members
+            .iter_many(item.relationships.sources())
+            .for_each(|member| {
+                total_centre += member.transform.translation();
+                total_velocity += **member.velocity;
+                total_heading += member.transform.forward().as_vec3();
+                count += 1
+            });
+
+        let centre = total_centre / count as f32;
+        let average_velocity = total_velocity / count as f32;
+        let average_heading = total_heading / count as f32;
+
+        item.centre.0 = centre;
+        item.average_velocity.0 = average_velocity;
+        item.average_heading.0 = average_heading;
+    });
+}
+
+// -------------------------
 
 pub(crate) fn update_neighbours(
     agent_query: ActiveAgentsQuery<NeighbourhoodQueryData>,
@@ -13,14 +58,18 @@ pub(crate) fn update_neighbours(
     commands: ParallelCommands,
 ) {
     agent_query.par_iter().for_each(|agent| {
-        let filter =
-            SpatialQueryFilter::from_mask(**agent.filter).with_excluded_entities([agent.entity]);
-
         let mut current_hits = EntityHashSet::new();
         let aabb = ColliderAabb::new(agent.global_transform.translation(), **agent.bounds);
 
         spatial_query.aabb_intersections_with_aabb_callback(aabb, |potential_hit| {
-            current_hits.insert(potential_hit);
+            if let Ok(hit_item) = hit_query.get(potential_hit)
+                && hit_item
+                    .collision_layers
+                    .interacts_with(*agent.collision_layers)
+            {
+                current_hits.insert(potential_hit);
+            }
+
             true
         });
 
@@ -126,13 +175,16 @@ pub(crate) struct NeighbourhoodQueryData {
     bounds: &'static NeighbourhoodExtents,
     neighbours: Option<&'static OutgoingRelationships<Neighbour>>,
 
+    collision_layers: &'static CollisionLayers,
     collider: &'static Collider,
+
     global_transform: &'static GlobalTransform,
 }
 
 #[derive(QueryData)]
 pub(crate) struct HitQueryData {
     collider: &'static Collider,
-    layers: &'static CollisionLayers,
+    collision_layers: &'static CollisionLayers,
+
     global_transform: &'static GlobalTransform,
 }

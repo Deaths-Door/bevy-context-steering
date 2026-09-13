@@ -5,6 +5,8 @@ use test_case::test_case;
 
 const ALIGNMENT_THRESHOLD: f32 = 0.97;
 
+
+#[track_caller]
 fn assert_alignment(alignment: f32) {
     assert!(
         alignment > ALIGNMENT_THRESHOLD,
@@ -27,8 +29,8 @@ fn assert_alignment(alignment: f32) {
 fn test_seek(target_pos: Vec3, falloff: Falloff) {
     let mut app = App::test();
 
-    let agent_id = app.spawn_agent(|mut commands| {
-        commands.insert(Seek::new(target_pos).with_falloff(falloff.clone()));
+    let agent_id = app.agent(|commands| {
+        commands.insert(Seek::new(target_pos).with_falloff(falloff.clone()))
     });
 
     // 1. Capture Pre-Step State
@@ -104,8 +106,8 @@ fn test_seek(target_pos: Vec3, falloff: Falloff) {
 fn test_flee(target_pos: Vec3, falloff: Falloff) {
     let mut app = App::test();
 
-    let agent_id = app.spawn_agent(|mut commands| {
-        commands.insert(Flee::new(target_pos).with_falloff(falloff.clone()));
+    let agent_id = app.agent(| commands| {
+        commands.insert(Flee::new(target_pos).with_falloff(falloff.clone()))
     });
 
     // 1. Capture Pre-Step State
@@ -197,15 +199,15 @@ use bevy::math::vec3;
 fn test_pursuit(agent_pos: Vec3, target_pos: Vec3, velocities: &[Vec3]) {
     let mut app = App::test();
 
-    let target_id = app.spawn_agent(|mut commands| {
-        commands.insert(Transform::from_translation(target_pos));
+    let target_id = app.agent(| commands| {
+        commands.insert(Transform::from_translation(target_pos))
     });
 
-    let agent_id = app.spawn_agent(|mut commands| {
+    let agent_id = app.agent(| commands| {
         commands.insert((
             Transform::from_translation(agent_pos),
             Pursuit::new(target_id),
-        ));
+        ))
     });
 
     for &velocity in velocities.iter() {
@@ -316,15 +318,15 @@ fn test_pursuit(agent_pos: Vec3, target_pos: Vec3, velocities: &[Vec3]) {
 fn test_evade(agent_pos: Vec3, threat_pos: Vec3, velocities: &[Vec3]) {
     let mut app = App::test();
 
-    let threat_id = app.spawn_agent(|mut commands| {
-        commands.insert(Transform::from_translation(threat_pos));
+    let threat_id = app.agent(| commands| {
+        commands.insert(Transform::from_translation(threat_pos))
     });
 
-    let agent_id = app.spawn_agent(|mut commands| {
+    let agent_id = app.agent(| commands| {
         commands.insert((
             Transform::from_translation(agent_pos),
             Evade::new(threat_id),
-        ));
+        ))
     });
 
     for &velocity in velocities.iter() {
@@ -404,8 +406,8 @@ fn test_evade(agent_pos: Vec3, threat_pos: Vec3, velocities: &[Vec3]) {
 fn test_brake(initial_velocity: Vec3) {
     let mut app = App::test();
 
-    let agent_id = app.spawn_agent(|mut commands| {
-        commands.insert((LinearVelocity(initial_velocity), Brake));
+    let agent_id = app.agent(| commands| {
+        commands.insert((LinearVelocity(initial_velocity), Brake))
     });
 
     app.step();
@@ -426,15 +428,15 @@ fn test_brake(initial_velocity: Vec3) {
 fn test_throttle(target_velocity: Vec3, agent_initial_velocity: Vec3) {
     let mut app = App::test();
 
-    let target_id = app.spawn_agent(|mut commands| {
-        commands.insert(LinearVelocity(target_velocity));
+    let target_id = app.agent(| commands| {
+        commands.insert(LinearVelocity(target_velocity))
     });
 
-    let agent_id = app.spawn_agent(|mut commands| {
+    let agent_id = app.agent(| commands| {
         commands.insert((
             LinearVelocity(agent_initial_velocity),
             Throttle::new(target_id),
-        ));
+        ))
     });
 
     app.step();
@@ -826,9 +828,7 @@ fn test_separate_cluster(
             new_translation, agent_translation,
             "Agent expected to steer away from clusters, but stayed stationary"
         );
-
-
-        
+  
         // Calculate general target direction using centroid half-space
         let centre = cluster_entity_translations.iter().sum::<Vec3>() / cluster_entity_translations.len() as f32;
 
@@ -850,3 +850,69 @@ fn test_separate_cluster(
     }
 }
 
+
+#[test_case(
+    Vec3::new(10.0, 0.0, 0.0),
+    &[];
+    "no obstacles: agent should head straight for target"
+)]
+#[test_case(
+    Vec3::new(10.0, 0.0, 0.0),
+    &[(Vec3::new(5.0, 0.0, 0.0), None)];
+    "single static obstacle dead ahead: agent should deviate off the direct line"
+)]
+#[test_case(
+    Vec3::new(10.0, 0.0, 0.0),
+    &[(Vec3::new(5.0, 0.0, 0.0), Some(Vec3::new(0.0, 0.0, 5.0)))];
+    "dynamic obstacle crossing perpendicular, ahead: predicted position should still steer agent off-axis"
+)]
+#[test_case(
+    Vec3::new(10.0, 0.0, 0.0),
+    &[(Vec3::new(5.0, 0.0, 0.0), Some(Vec3::new(-5.0, 0.0, 0.0)))];
+    "dynamic obstacle retreating along agent's own path: agent should NOT need to deviate much, since it'll be clear by the time agent arrives"
+)]
+#[test_case(
+    Vec3::new(10.0, 0.0, 0.0),
+    &[(Vec3::new(0.0, 0.0, 20.0), None)];
+    "static obstacle far off to the side: should have negligible effect on heading"
+)]
+#[test_case(
+    Vec3::new(10.0, 0.0, 0.0),
+    &[
+        (Vec3::new(3.0, 0.0, 0.0), None),
+        (Vec3::new(7.0, 0.0, 0.0), None),
+    ];
+    "two static obstacles bracketing the direct path: agent should thread between or clearly divert"
+)]
+fn test_avoid_obstacles(target : Vec3, obstacles : &[( Vec3 , Option<Vec3>)]) {
+    let mut app = App::new();
+    
+    let agent = app.agent(|commands| commands.insert((Seek::new(target),AvoidObstacles::default())));
+
+    for (translation, velocity) in obstacles {
+        let _obstacle =  match velocity {
+            Some(velocity) => {
+                app.agent(|commands| {
+                    commands.insert(LinearVelocity(*velocity));
+                    commands.insert(Transform::from_translation(*translation))
+                })
+            },
+            None => {
+                let mut commands = app.world_mut().commands();
+                let mut commands = commands.spawn_empty();
+                commands.obstacle();
+                let id = commands.id();
+                app.world_mut().flush();
+                id
+            }
+        };
+    }
+
+    app.step();
+    
+    let agent_translation = app.get::<Transform>(agent).translation;
+    let direction = app.get::<SteeringContext>(agent).resultant_direction().normalize_or_zero();
+    let straight_line = (target - agent_translation).normalize();
+
+    assert_alignment(direction.dot(straight_line));
+}

@@ -3,7 +3,9 @@ pub use bevy::{
     app::PanicHandlerPlugin, mesh::MeshPlugin, prelude::*, scene::ScenePlugin,
     time::TimeUpdateStrategy,
 };
-pub use bevy_context_steering::{behaviours::*, motion::MotionKinematic, *};
+pub use bevy_context_steering::{
+    ClusterEntityCommandsExt, behaviours::*, motion::MotionKinematic, *,
+};
 
 pub const COLLIDER_RADIUS: f32 = 1.0;
 pub const MOVEMENT_TOLERANCE: f32 = 2.0 * COLLIDER_RADIUS + 0.05;
@@ -18,6 +20,15 @@ pub fn agent<'a, 'b>(commands: &'a mut EntityCommands<'b>) -> &'a mut EntityComm
         // Crucial: Avian needs damping to stop the "wobble"
         LinearDamping(1.0),
         AngularDamping(1.0),
+        Transform::default(),
+    ))
+}
+
+pub fn obstacle<'a, 'b>(commands: &'a mut EntityCommands<'b>) -> &'a mut EntityCommands<'b> {
+    commands.insert((
+        RigidBody::Dynamic,
+        Mass(1.0),
+        Collider::sphere(COLLIDER_RADIUS),
     ))
 }
 
@@ -45,8 +56,6 @@ pub trait SteeringScenarioExt {
         self.step_frames(1)
     }
 
-    #[deprecated]
-    fn spawn_agent(&mut self, with: impl FnOnce(EntityCommands<'_>)) -> Entity;
     fn agent(
         &mut self,
         with: impl for<'a, 'b> FnOnce(&'a mut EntityCommands<'b>) -> &'a mut EntityCommands<'b>,
@@ -56,7 +65,7 @@ pub trait SteeringScenarioExt {
 }
 
 pub trait SteeringScenarioCommandsExt {
-    fn spawn_agent(&mut self) -> &mut Self;
+    fn obstacle(&mut self) -> &mut Self;
     fn neighbour(&mut self, mask: LayerMask, half_extent: Vec3) -> &mut Self;
 }
 
@@ -91,15 +100,6 @@ impl SteeringScenarioExt for App {
         }
     }
 
-    fn spawn_agent(&mut self, with: impl FnOnce(EntityCommands<'_>)) -> Entity {
-        let mut commands = self.world_mut().commands();
-        let mut commands = commands.spawn_empty();
-        let commands = agent(&mut commands);
-        let id = commands.id();
-        (with)(commands.reborrow());
-        self.world_mut().flush();
-        id
-    }
 
     fn agent(
         &mut self,
@@ -121,11 +121,11 @@ impl SteeringScenarioExt for App {
 }
 
 impl SteeringScenarioCommandsExt for EntityCommands<'_> {
-    fn spawn_agent(&mut self) -> &mut Self {
-        agent(self)
-    }
-
     fn neighbour(&mut self, mask: LayerMask, half_extent: Vec3) -> &mut Self {
         neighbour(mask, half_extent, self)
+    }
+
+    fn obstacle(&mut self) -> &mut Self {
+        obstacle(self)
     }
 }

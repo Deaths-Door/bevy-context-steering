@@ -3,9 +3,7 @@ pub use bevy::{
     app::PanicHandlerPlugin, mesh::MeshPlugin, prelude::*, scene::ScenePlugin,
     time::TimeUpdateStrategy,
 };
-pub use bevy_context_steering::{
-    ClusterEntityCommandsExt, behaviours::*, motion::MotionKinematic, *,
-};
+pub use bevy_context_steering::prelude::*;
 
 pub const COLLIDER_RADIUS: f32 = 1.0;
 pub const MOVEMENT_TOLERANCE: f32 = 2.0 * COLLIDER_RADIUS + 0.05;
@@ -99,7 +97,6 @@ impl SteeringScenarioExt for App {
             self.update();
         }
     }
-
 
     fn agent(
         &mut self,

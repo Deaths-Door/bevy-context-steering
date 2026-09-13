@@ -14,7 +14,7 @@ pub(crate) struct MemberClusterQueryData {
 #[derive(QueryData)]
 #[query_data(mutable)]
 pub(crate) struct NeighbourGroupQueryData {
-    relationships: &'static IncomingRelationships<Neighbour>,
+    relationships: &'static OutgoingRelationships<Neighbour>,
     centre: &'static mut SteeringGroupCentre,
     average_velocity: &'static mut SteeringGroupMeanVelocity,
     average_heading: &'static mut SteeringGroupMeanHeading,
@@ -31,7 +31,7 @@ pub(crate) fn update_neighbour_properties(
         let mut count = 0u32;
 
         query_members
-            .iter_many(item.relationships.sources())
+            .iter_many(item.relationships.targets())
             .for_each(|member| {
                 total_centre += member.transform.translation();
                 total_velocity += **member.velocity;
@@ -62,7 +62,8 @@ pub(crate) fn update_neighbours(
         let aabb = ColliderAabb::new(agent.global_transform.translation(), **agent.bounds);
 
         spatial_query.aabb_intersections_with_aabb_callback(aabb, |potential_hit| {
-            if let Ok(hit_item) = hit_query.get(potential_hit)
+            if potential_hit != agent.entity
+                && let Ok(hit_item) = hit_query.get(potential_hit)
                 && hit_item
                     .collision_layers
                     .interacts_with(*agent.collision_layers)

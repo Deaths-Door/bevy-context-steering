@@ -77,6 +77,10 @@ impl Plugin for SteeringPlugin {
             CohereCluster::steering_behaviour_update,
             ScatterCluster::steering_behaviour_update,
             AvoidObstacles::steering_behaviour_update,
+            AlignVelocity::steering_behaviour_update,
+            AlignHeading::steering_behaviour_update,
+            AlignVelocityCluster::steering_behaviour_update,
+            AlignHeadingCluster::steering_behaviour_update,
         );
 
         // apply behaviours
@@ -85,7 +89,15 @@ impl Plugin for SteeringPlugin {
         // instead the 2 weights,
         // ideally one would do it on spawn of coherecluster THEN on the cluster, but im not in the mood
         app.add_observer(
-            on_add_component_insert::<Cluster, (CohereClusterWeight, ScatterClusterWeight)>,
+            on_add_component_insert::<
+                Cluster,
+                (
+                    CohereClusterWeight,
+                    ScatterClusterWeight,
+                    AlignVelocityClusterWeight,
+                    AlignHeadingClusterWeight,
+                ),
+            >,
         );
 
         // set of all motion types in the lib

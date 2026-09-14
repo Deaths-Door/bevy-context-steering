@@ -956,3 +956,110 @@ fn test_avoid_obstacles(target : Vec3, obstacles : &[( Vec3 , Option<Vec3>)]) {
 
     assert_alignment(direction.dot(straight_line));
 }
+
+
+#[test]
+fn test_neighbour_align_velocity() {
+    let mut app = App::test();
+    let target = Vec3::X;
+
+    let agent = app.agent(|commands| {
+        commands
+            .neighbour(LayerMask::DEFAULT, Vec3::splat(5.0))
+            .insert(AlignVelocity::new())
+    });
+
+    let velocity_source = app.agent(|commands| {
+        commands
+            .insert(LinearVelocity(target * 2.0))
+            .insert(Transform::from_rotation(Quat::from_rotation_y(-std::f32::consts::FRAC_PI_2)))
+    });
+    app.world_mut()
+        .entity_mut(velocity_source)
+        .remove::<(SteeringAgent, MotionKinematic)>();
+
+    app.step();
+
+    let direction = app
+        .get::<SteeringContext>(agent)
+        .resultant_direction()
+        .normalize_or_zero();
+    assert_alignment(direction.dot(target));
+}
+
+#[test]
+fn test_neighbour_align_heading() {
+    let mut app = App::test();
+    let target = Vec3::X;
+
+    let agent = app.agent(|commands| {
+        commands
+            .neighbour(LayerMask::DEFAULT, Vec3::splat(5.0))
+            .insert(AlignHeading::new())
+    });
+
+    app.agent(|commands| {
+        commands.insert(Transform::from_rotation(Quat::from_rotation_y(-std::f32::consts::FRAC_PI_2)))
+    });
+
+    app.step();
+
+    let direction = app
+        .get::<SteeringContext>(agent)
+        .resultant_direction()
+        .normalize_or_zero();
+    assert_alignment(direction.dot(target));
+}
+
+#[test]
+fn test_cluster_align_velocity() {
+    let mut app = App::test();
+    let target = Vec3::X;
+    let cluster_id = ClusterId::new(1);
+
+    let agent = app.agent(|commands| {
+        commands.insert(AlignVelocityCluster::from(cluster_id))
+    });
+
+    let velocity_source = app.agent(|commands| {
+        commands.enter_cluster(cluster_id);
+        commands
+            .insert(LinearVelocity(target * 2.0))
+            .insert(Transform::from_rotation(Quat::from_rotation_y(-std::f32::consts::FRAC_PI_2)))
+    });
+    app.world_mut()
+        .entity_mut(velocity_source)
+        .remove::<(SteeringAgent, MotionKinematic)>();
+
+    app.step();
+
+    let direction = app
+        .get::<SteeringContext>(agent)
+        .resultant_direction()
+        .normalize_or_zero();
+    assert_alignment(direction.dot(target));
+}
+
+#[test]
+fn test_cluster_align_heading() {
+    let mut app = App::test();
+    let target = Vec3::X;
+    let cluster_id = ClusterId::new(1);
+
+    let agent = app.agent(|commands| {
+        commands.insert(AlignHeadingCluster::from(cluster_id))
+    });
+
+    app.agent(|commands| {
+        commands.enter_cluster(cluster_id);
+        commands.insert(Transform::from_rotation(Quat::from_rotation_y(-std::f32::consts::FRAC_PI_2)))
+    });
+
+    app.step();
+
+    let direction = app
+        .get::<SteeringContext>(agent)
+        .resultant_direction()
+        .normalize_or_zero();
+    assert_alignment(direction.dot(target));
+}

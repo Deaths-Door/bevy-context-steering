@@ -17,6 +17,11 @@ mod scatter_cluster;
 
 mod avoid_obstacle;
 
+mod align_velocity;
+mod align_heading;
+mod align_velocity_cluster;
+mod align_heading_cluster;
+
 use super::*;
 
 pub use falloff::*;
@@ -37,3 +42,8 @@ pub use cohere_cluster::*;
 pub use scatter_cluster::*;
 
 pub use avoid_obstacle::*;
+
+pub use align_velocity::*;
+pub use align_heading::*;
+pub use align_velocity_cluster::*;
+pub use align_heading_cluster::*;

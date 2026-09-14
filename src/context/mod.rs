@@ -155,7 +155,7 @@ impl SteeringContext {
             .is_some()
     }
 
-    /// Set the velocity to the same value everywhere 
+    /// Set the velocity to the same value everywhere
     pub fn overwrite_velocity<K: 'static>(&mut self, target_velocity: Vec3) -> bool {
         self.behaviours
             .get_mut(&TypeId::of::<K>())

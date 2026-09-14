@@ -25,6 +25,7 @@ pub use commands::*;
 pub use components::*;
 pub use context::*;
 pub use neighbours::*;
+pub use obstacles::*;
 pub use plugin::*;
 pub use prediction::*;
 

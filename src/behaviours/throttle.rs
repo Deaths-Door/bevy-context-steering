@@ -57,8 +57,7 @@ impl ThrottleTo {
                 let target_velocity = agent.behaviour.velocity;
 
                 agent.context.set_interest::<Self>(target_velocity);
-                agent.context.overwrite_velocity::<Self>( target_velocity);
-
+                agent.context.set_velocity::<Self>(target_velocity, target_velocity);
             })
     }
 }
@@ -81,8 +80,7 @@ impl Throttle{
                 let target_velocity = **target_velocity;
 
                 agent.context.set_interest::<Self>(target_velocity);
-                agent.context.overwrite_velocity::<Self>(target_velocity);
-
+                agent.context.set_velocity::<Self>(target_velocity, target_velocity);
             })
     }
 }

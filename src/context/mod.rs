@@ -155,13 +155,6 @@ impl SteeringContext {
             .is_some()
     }
 
-    /// Set the velocity to the same value everywhere
-    pub fn overwrite_velocity<K: 'static>(&mut self, target_velocity: Vec3) -> bool {
-        self.behaviours
-            .get_mut(&TypeId::of::<K>())
-            .map(|behaviour| behaviour.overwrite_velocity(target_velocity))
-            .is_some()
-    }
 
     /// Updates velocity for behaviour `K` mapped to the given direction, averaging the two values.
     /// Returns `true` if updated, `false` otherwise.
@@ -227,17 +220,18 @@ impl SteeringContext {
     fn interpolate_velocity(&self, slot: usize) -> Option<Vec3> {
         let directions = self.cache.directions();
         let neighbours = &*self.cache.direction_neighbours()[slot];
+        let target_direction = directions[slot];
 
         let mut total_velocity = None;
         let mut total_weight = 0.0;
 
         for &index in neighbours.iter() {
             if let Some(v) = self.resultant_field[index].velocity() {
-                // Weight based on alignment with the continuous resultant direction
-                let wk = self.resultant_direction.dot(directions[index]).max(0.0);
+                // Match the fractional weights used when velocity was written.
+                let wk = target_direction.dot(directions[index]).max(0.0);
                 if wk > f32::EPSILON {
                     *total_velocity.get_or_insert_default() += *v * wk;
-                    total_weight += wk;
+                    total_weight += wk * wk;
                 }
             }
         }

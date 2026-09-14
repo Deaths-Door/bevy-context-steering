@@ -925,7 +925,7 @@ fn test_separate_cluster(
     "two static obstacles bracketing the direct path: agent should thread between or clearly divert"
 )]
 fn test_avoid_obstacles(target : Vec3, obstacles : &[( Vec3 , Option<Vec3>)]) {
-    let mut app = App::new();
+    let mut app = App::test();
     
     let agent = app.agent(|commands| commands.insert((Seek::new(target),AvoidObstacles::default())));
 

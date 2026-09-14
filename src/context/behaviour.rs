@@ -56,6 +56,13 @@ impl SteeringBehaviour {
         self.velocity_with(cache, direction, target_velocity, overwrite);
     }
 
+    /// Set velocity to the same value everywhere
+    pub fn overwrite_velocity(&mut self, target_velocity: Vec3) {
+        for weight in &mut self.field {
+            weight.velocity = Some(target_velocity);
+        }
+    }
+
     /// Update velocity at the given direction, averaging the two values
     pub fn velocity(&mut self, cache: &SteeringCache, direction: Vec3, target_velocity: Vec3) {
         self.velocity_with(cache, direction, target_velocity, |a, b| (a + b) * 0.5);

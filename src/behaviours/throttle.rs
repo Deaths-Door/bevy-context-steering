@@ -16,6 +16,25 @@ pub struct Throttle {
     pub entity : Entity 
 }
 
+/// A steering component that pushes the agent toward matching a fixed
+/// target velocity, independent of any other entity.
+///
+/// Unlike [`Throttle`], which tracks another entity's current velocity via
+/// a query, `ThrottleTo` reads its target directly off the component with
+/// no lookup required — useful for a constant cruise speed, patrol pace,
+/// or any case where "match this entity" doesn't apply.
+#[derive(Component, Debug, Clone, Reflect)]
+#[reflect(Component, Debug)]
+#[component(
+    on_add = on_add_into_steering_context::<Self>,
+    on_remove = on_remove_from_steering_context::<Self>
+)]
+#[require(SteeringContext)]
+pub struct ThrottleTo {
+    /// The fixed velocity this agent will attempt to match.
+    pub velocity: Vec3,
+}
+
 impl Throttle {
     /// Creates a new `Throttle` steering behavior targeting the specified entity.
     pub fn new(entity: Entity) -> Self {
@@ -23,9 +42,30 @@ impl Throttle {
     }
 }
 
+impl ThrottleTo {
+    /// Creates a new `ThrottleTo` steering behavior 
+    pub fn new( velocity: Vec3) -> Self {
+        Self { velocity }
+    }
+}
+
+impl ThrottleTo {
+    pub(crate) fn steering_behaviour_update(mut agent_query: ActiveAgentsQuery<BehaviourQueryData<Self>>) {
+        agent_query
+            .par_iter_mut()
+            .for_each(|mut agent|{
+                let target_velocity = agent.behaviour.velocity;
+
+                agent.context.set_interest::<Self>(target_velocity);
+                agent.context.overwrite_velocity::<Self>( target_velocity);
+
+            })
+    }
+}
+
 
 impl Throttle{
-    pub(crate) fn steering_behaviour_update(mut agent_query: ActiveAgentsQuery<BehaviourQueryData>, entity_query : Query<&LinearVelocity> ) {
+    pub(crate) fn steering_behaviour_update(mut agent_query: ActiveAgentsQuery<BehaviourQueryData<Self>>, entity_query : Query<&LinearVelocity> ) {
         agent_query
             .par_iter_mut()
             .for_each(|mut agent|{
@@ -39,16 +79,9 @@ impl Throttle{
                 };
 
                 let target_velocity = **target_velocity;
-                let current_velocity = **agent.velocity;
 
-                // Calculate the velocity delta vector
-                let desired_steering = target_velocity - current_velocity;
-                let desired_velocity = target_velocity ; 
-
-                // Pass the delta force so interest pushes OPPOSITE excess velocity 
-                // and TOWARD missing velocity
-                agent.context.set_interest::<Self>(desired_steering);
-                agent.context.set_velocity::<Self>(desired_steering, desired_velocity);
+                agent.context.set_interest::<Self>(target_velocity);
+                agent.context.overwrite_velocity::<Self>(target_velocity);
 
             })
     }
@@ -56,9 +89,8 @@ impl Throttle{
 
 #[derive(QueryData)]
 #[query_data(mutable)]
-pub(crate) struct BehaviourQueryData {
+pub(crate) struct BehaviourQueryData<T: Component> {
     entity : Entity, 
-    behaviour: &'static Throttle,
-    velocity: &'static LinearVelocity,
+    behaviour: &'static T,
     context: &'static mut SteeringContext,
 }

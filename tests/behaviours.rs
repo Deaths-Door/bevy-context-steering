@@ -423,26 +423,66 @@ fn test_brake(initial_velocity: Vec3) {
     );
 }
 
+
+#[test_case(vec3(15.0, 0.0, 0.0), vec3(0.0, 0.0, 0.0); "Throttle - Accelerate from Stationary")]
+#[test_case(vec3(5.0, 0.0, 5.0), vec3(10.0, 0.0, 0.0); "Throttle - Match Moving Target Velocity")]
+fn test_throttle_to(target_velocity: Vec3, agent_initial_velocity: Vec3) {
+    let mut app = App::test();
+
+
+    let agent_id = app.agent(| commands| {
+        commands.insert((
+            LinearVelocity(agent_initial_velocity),
+            ThrottleTo::new(target_velocity),
+        ))
+    });
+
+    app.step();
+
+    let agent_velocity = **app.world().get::<LinearVelocity>(agent_id).unwrap();
+
+    // 1. Verify direction matches (dot product close to 1.0)
+    if target_velocity.length_squared() > 0.001 {
+        let dir_similarity = agent_velocity.normalize().dot(target_velocity.normalize());
+        assert!(
+            dir_similarity > 0.9,
+            "Expected agent velocity direction to align with target velocity. Dot product: {dir_similarity}"
+        );
+    }
+
+    // 2. Verify agent accelerated significantly toward target speed
+    let speed_diff = (agent_velocity.length() - target_velocity.length()).abs();
+    assert!(
+        speed_diff < 1.0,
+        "Expected agent speed to approach target speed ({}), but got {}",
+        target_velocity.length(),
+        agent_velocity.length()
+    );
+}
+
 #[test_case(vec3(15.0, 0.0, 0.0), vec3(0.0, 0.0, 0.0); "Throttle - Accelerate from Stationary")]
 #[test_case(vec3(5.0, 0.0, 5.0), vec3(10.0, 0.0, 0.0); "Throttle - Match Moving Target Velocity")]
 fn test_throttle(target_velocity: Vec3, agent_initial_velocity: Vec3) {
     let mut app = App::test();
 
     let target_id = app.agent(| commands| {
-        commands.insert(LinearVelocity(target_velocity))
+        // Keep the target's velocity from being reset by its default kinematic motion.
+        commands
+            .insert((LinearVelocity(target_velocity), LinearDamping(0.0)))
+            .remove::<MotionKinematic>()
     });
 
     let agent_id = app.agent(| commands| {
+        // Disable damping to test velocity matching
         commands.insert((
             LinearVelocity(agent_initial_velocity),
+            LinearDamping(0.0),
             Throttle::new(target_id),
         ))
     });
 
     app.step();
-    app.step();
-    app.step();
-    app.step();
+
 
     let agent_velocity = **app.world().get::<LinearVelocity>(agent_id).unwrap();
 

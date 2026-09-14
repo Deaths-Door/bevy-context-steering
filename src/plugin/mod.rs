@@ -71,6 +71,7 @@ impl Plugin for SteeringPlugin {
             Evade::steering_behaviour_update,
             Brake::steering_behaviour_update,
             Throttle::steering_behaviour_update,
+            ThrottleTo::steering_behaviour_update,
             Cohere::steering_behaviour_update,
             Scatter::steering_behaviour_update,
             CohereCluster::steering_behaviour_update,

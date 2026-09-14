@@ -155,6 +155,14 @@ impl SteeringContext {
             .is_some()
     }
 
+    /// Set the velocity to the same value everywhere 
+    pub fn overwrite_velocity<K: 'static>(&mut self, target_velocity: Vec3) -> bool {
+        self.behaviours
+            .get_mut(&TypeId::of::<K>())
+            .map(|behaviour| behaviour.overwrite_velocity(target_velocity))
+            .is_some()
+    }
+
     /// Updates velocity for behaviour `K` mapped to the given direction, averaging the two values.
     /// Returns `true` if updated, `false` otherwise.
     pub fn velocity<K: 'static>(&mut self, direction: Vec3, target_velocity: Vec3) -> bool {

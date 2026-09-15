@@ -4,8 +4,6 @@ use shared::*;
 use test_case::test_case;
 
 const ALIGNMENT_THRESHOLD: f32 = 0.97;
-
-
 #[track_caller]
 fn assert_alignment(alignment: f32) {
     assert!(
@@ -29,9 +27,8 @@ fn assert_alignment(alignment: f32) {
 fn test_seek(target_pos: Vec3, falloff: Falloff) {
     let mut app = App::test();
 
-    let agent_id = app.agent(|commands| {
-        commands.insert(Seek::new(target_pos).with_falloff(falloff.clone()))
-    });
+    let agent_id =
+        app.agent(|commands| commands.insert(Seek::new(target_pos).with_falloff(falloff.clone())));
 
     // 1. Capture Pre-Step State
     let initial_pos = app.get::<Transform>(agent_id).translation;
@@ -106,9 +103,8 @@ fn test_seek(target_pos: Vec3, falloff: Falloff) {
 fn test_flee(target_pos: Vec3, falloff: Falloff) {
     let mut app = App::test();
 
-    let agent_id = app.agent(| commands| {
-        commands.insert(Flee::new(target_pos).with_falloff(falloff.clone()))
-    });
+    let agent_id =
+        app.agent(|commands| commands.insert(Flee::new(target_pos).with_falloff(falloff.clone())));
 
     // 1. Capture Pre-Step State
     let initial_pos = app.get::<Transform>(agent_id).translation;
@@ -199,11 +195,9 @@ use bevy::math::vec3;
 fn test_pursuit(agent_pos: Vec3, target_pos: Vec3, velocities: &[Vec3]) {
     let mut app = App::test();
 
-    let target_id = app.agent(| commands| {
-        commands.insert(Transform::from_translation(target_pos))
-    });
+    let target_id = app.agent(|commands| commands.insert(Transform::from_translation(target_pos)));
 
-    let agent_id = app.agent(| commands| {
+    let agent_id = app.agent(|commands| {
         commands.insert((
             Transform::from_translation(agent_pos),
             Pursuit::new(target_id),
@@ -318,11 +312,9 @@ fn test_pursuit(agent_pos: Vec3, target_pos: Vec3, velocities: &[Vec3]) {
 fn test_evade(agent_pos: Vec3, threat_pos: Vec3, velocities: &[Vec3]) {
     let mut app = App::test();
 
-    let threat_id = app.agent(| commands| {
-        commands.insert(Transform::from_translation(threat_pos))
-    });
+    let threat_id = app.agent(|commands| commands.insert(Transform::from_translation(threat_pos)));
 
-    let agent_id = app.agent(| commands| {
+    let agent_id = app.agent(|commands| {
         commands.insert((
             Transform::from_translation(agent_pos),
             Evade::new(threat_id),
@@ -406,9 +398,7 @@ fn test_evade(agent_pos: Vec3, threat_pos: Vec3, velocities: &[Vec3]) {
 fn test_brake(initial_velocity: Vec3) {
     let mut app = App::test();
 
-    let agent_id = app.agent(| commands| {
-        commands.insert((LinearVelocity(initial_velocity), Brake))
-    });
+    let agent_id = app.agent(|commands| commands.insert((LinearVelocity(initial_velocity), Brake)));
 
     app.step();
     app.step();
@@ -423,14 +413,12 @@ fn test_brake(initial_velocity: Vec3) {
     );
 }
 
-
 #[test_case(vec3(15.0, 0.0, 0.0), vec3(0.0, 0.0, 0.0); "Throttle - Accelerate from Stationary")]
 #[test_case(vec3(5.0, 0.0, 5.0), vec3(10.0, 0.0, 0.0); "Throttle - Match Moving Target Velocity")]
 fn test_throttle_to(target_velocity: Vec3, agent_initial_velocity: Vec3) {
     let mut app = App::test();
 
-
-    let agent_id = app.agent(| commands| {
+    let agent_id = app.agent(|commands| {
         commands.insert((
             LinearVelocity(agent_initial_velocity),
             ThrottleTo::new(target_velocity),
@@ -465,14 +453,14 @@ fn test_throttle_to(target_velocity: Vec3, agent_initial_velocity: Vec3) {
 fn test_throttle(target_velocity: Vec3, agent_initial_velocity: Vec3) {
     let mut app = App::test();
 
-    let target_id = app.agent(| commands| {
+    let target_id = app.agent(|commands| {
         // Keep the target's velocity from being reset by its default kinematic motion.
         commands
             .insert((LinearVelocity(target_velocity), LinearDamping(0.0)))
             .remove::<MotionKinematic>()
     });
 
-    let agent_id = app.agent(| commands| {
+    let agent_id = app.agent(|commands| {
         // Disable damping to test velocity matching
         commands.insert((
             LinearVelocity(agent_initial_velocity),
@@ -482,7 +470,6 @@ fn test_throttle(target_velocity: Vec3, agent_initial_velocity: Vec3) {
     });
 
     app.step();
-
 
     let agent_velocity = **app.world().get::<LinearVelocity>(agent_id).unwrap();
 
@@ -551,21 +538,14 @@ fn test_throttle(target_velocity: Vec3, agent_initial_velocity: Vec3) {
     true 
     ; "neighbor_detected_with_larger_custom_half_extent"
 )]
-fn test_cohere(
-    agent_translation: Vec3, 
-    half_extent: Vec3,
-    neighbours: &[Vec3], 
-    should_move: bool
-) {
+fn test_cohere(agent_translation: Vec3, half_extent: Vec3, neighbours: &[Vec3], should_move: bool) {
     let mut app = App::test();
 
     let agent = app.agent(|commands| {
-        commands
-            .neighbour(LayerMask::DEFAULT,half_extent)
-            .insert((
-                Cohere::new(),
-                Transform::from_translation(agent_translation),
-            ))
+        commands.neighbour(LayerMask::DEFAULT, half_extent).insert((
+            Cohere::new(),
+            Transform::from_translation(agent_translation),
+        ))
     });
 
     neighbours.iter().for_each(|translation| {
@@ -611,7 +591,6 @@ fn test_cohere(
     }
 }
 
-
 #[test_case(
     Vec3::ZERO, 
     Vec3::splat(5.0),
@@ -653,26 +632,22 @@ fn test_cohere(
     ; "symmetric_surrounding_neighbors_equilibrium"
 )]
 fn test_separate(
-    agent_translation: Vec3, 
+    agent_translation: Vec3,
     half_extent: Vec3,
-    neighbours: &[Vec3], 
-    should_move: bool
+    neighbours: &[Vec3],
+    should_move: bool,
 ) {
     let mut app = App::test();
 
     let agent = app.agent(|commands| {
-        commands
-            .neighbour(LayerMask::DEFAULT, half_extent)
-            .insert((
-                Scatter::new(),
-                Transform::from_translation(agent_translation),
-            ))
+        commands.neighbour(LayerMask::DEFAULT, half_extent).insert((
+            Scatter::new(),
+            Transform::from_translation(agent_translation),
+        ))
     });
 
     for translation in neighbours {
-        app.agent(|commands| {
-            commands.insert(Transform::from_translation(*translation))
-        });
+        app.agent(|commands| commands.insert(Transform::from_translation(*translation)));
     }
 
     app.step();
@@ -696,7 +671,7 @@ fn test_separate(
 
         let displacement = new_translation - agent_translation;
         let center = valid_neighbours.iter().sum::<Vec3>() / valid_neighbours.len() as f32;
-        
+
         // Vector pointing FROM agent TO neighborhood center
         let cluster_dir = (center - agent_translation).normalize_or_zero();
 
@@ -714,25 +689,23 @@ fn test_separate(
     }
 }
 
-
 #[test_case(
     Vec3::ZERO, 
     &[], 
     false 
     ; "no_clusters_should_not_move"
 )]
-
 #[test_case(
     Vec3::ZERO, 
     &[Vec3::new(10.0, 0.0, 0.0)], 
-    false 
-    ; "single_cluster_outside_range_ignored"
+    true 
+    ; "single_selected_cluster_influences_agent_regardless_of_distance"
 )]
 #[test_case(
     Vec3::ZERO, 
     &[Vec3::new(3.0, 2.0, 0.0), Vec3::new(3.0, -2.0, 0.0)], 
-    false 
-    ; "asymmetric_cluster_inside_range"
+    true 
+    ; "asymmetric_selected_clusters_influence_agent"
 )]
 #[test_case(
     Vec3::ZERO, 
@@ -747,28 +720,30 @@ fn test_separate(
 )]
 
 fn test_cohere_cluster(
-    agent_translation: Vec3, 
-    cluster_entity_translations: &[Vec3], 
-    should_move: bool
+    agent_translation: Vec3,
+    cluster_entity_translations: &[Vec3],
+    should_move: bool,
 ) {
     let mut app = App::test();
 
-    let cluster_ids = cluster_entity_translations.iter().enumerate().map(|a| ClusterId::new(a.0)).collect::<Vec<_>>();
+    let cluster_ids = cluster_entity_translations
+        .iter()
+        .enumerate()
+        .map(|a| ClusterId::new(a.0))
+        .collect::<Vec<_>>();
 
     let agent = app.agent(|commands| {
-        commands
-            .insert((
-                CohereCluster::from_iter(cluster_ids.iter().copied()),
-                Transform::from_translation(agent_translation),
-            ))
+        commands.insert((
+            CohereCluster::from_iter(cluster_ids.iter().copied()),
+            Transform::from_translation(agent_translation),
+        ))
     });
 
-    for (translation,cluster_id ) in cluster_entity_translations.iter().zip(cluster_ids) {
+    for (translation, cluster_id) in cluster_entity_translations.iter().zip(cluster_ids) {
         app.agent(|commands| {
             commands.enter_cluster(cluster_id);
             commands.insert(Transform::from_translation(*translation))
         });
-
     }
 
     app.step();
@@ -791,7 +766,8 @@ fn test_cohere_cluster(
         let displacement = new_translation - agent_translation;
 
         // Calculate general target direction using centroid half-space
-        let centre = cluster_entity_translations.iter().sum::<Vec3>() / cluster_entity_translations.len() as f32;
+        let centre = cluster_entity_translations.iter().sum::<Vec3>()
+            / cluster_entity_translations.len() as f32;
         let target_dir = (centre - agent_translation).normalize_or_zero();
 
         // Invariant 2: Directional alignment threshold
@@ -810,7 +786,6 @@ fn test_cohere_cluster(
     }
 }
 
-
 #[test_case(
     Vec3::ZERO, 
     &[], 
@@ -820,10 +795,9 @@ fn test_cohere_cluster(
 #[test_case(
     Vec3::ZERO, 
     &[Vec3::new(10.0, 0.0, 0.0)], 
-    false 
-    ; "cluster_outside_range_ignored"
+    true 
+    ; "single_selected_cluster_influences_agent_regardless_of_distance"
 )]
-
 #[test_case(
     Vec3::ZERO, 
     &[
@@ -836,28 +810,30 @@ fn test_cohere_cluster(
     ; "symmetric_surrounding_clusters_equilibrium"
 )]
 fn test_separate_cluster(
-    agent_translation: Vec3, 
-    cluster_entity_translations: &[Vec3], 
-    should_move: bool
+    agent_translation: Vec3,
+    cluster_entity_translations: &[Vec3],
+    should_move: bool,
 ) {
     let mut app = App::test();
 
-    let cluster_ids = cluster_entity_translations.iter().enumerate().map(|a| ClusterId::new(a.0)).collect::<Vec<_>>();
+    let cluster_ids = cluster_entity_translations
+        .iter()
+        .enumerate()
+        .map(|a| ClusterId::new(a.0))
+        .collect::<Vec<_>>();
 
     let agent = app.agent(|commands| {
-         commands
-            .insert((
-                ScatterCluster::from_iter(cluster_ids.iter().copied()),
-                Transform::from_translation(agent_translation),
-            ))
+        commands.insert((
+            ScatterCluster::from_iter(cluster_ids.iter().copied()),
+            Transform::from_translation(agent_translation),
+        ))
     });
 
-    for (translation,cluster_id ) in cluster_entity_translations.iter().zip(cluster_ids) {
+    for (translation, cluster_id) in cluster_entity_translations.iter().zip(cluster_ids) {
         app.agent(|commands| {
             commands.enter_cluster(cluster_id);
             commands.insert(Transform::from_translation(*translation))
         });
-
     }
     app.step();
 
@@ -868,11 +844,12 @@ fn test_separate_cluster(
             new_translation, agent_translation,
             "Agent expected to steer away from clusters, but stayed stationary"
         );
-  
-        // Calculate general target direction using centroid half-space
-        let centre = cluster_entity_translations.iter().sum::<Vec3>() / cluster_entity_translations.len() as f32;
 
-        let displacement = new_translation - agent_translation;        
+        // Calculate general target direction using centroid half-space
+        let centre = cluster_entity_translations.iter().sum::<Vec3>()
+            / cluster_entity_translations.len() as f32;
+
+        let displacement = new_translation - agent_translation;
         // Vector pointing FROM agent TO clusterhood center
         let cluster_dir = (centre - agent_translation).normalize_or_zero();
 
@@ -889,7 +866,6 @@ fn test_separate_cluster(
         );
     }
 }
-
 
 #[test_case(
     Vec3::new(10.0, 0.0, 0.0),
@@ -924,19 +900,18 @@ fn test_separate_cluster(
     ];
     "two static obstacles bracketing the direct path: agent should thread between or clearly divert"
 )]
-fn test_avoid_obstacles(target : Vec3, obstacles : &[( Vec3 , Option<Vec3>)]) {
+fn test_avoid_obstacles(target: Vec3, obstacles: &[(Vec3, Option<Vec3>)]) {
     let mut app = App::test();
-    
-    let agent = app.agent(|commands| commands.insert((Seek::new(target),AvoidObstacles::default())));
+
+    let agent =
+        app.agent(|commands| commands.insert((Seek::new(target), AvoidObstacles::default())));
 
     for (translation, velocity) in obstacles {
-        let _obstacle =  match velocity {
-            Some(velocity) => {
-                app.agent(|commands| {
-                    commands.insert(LinearVelocity(*velocity));
-                    commands.insert(Transform::from_translation(*translation))
-                })
-            },
+        let _obstacle = match velocity {
+            Some(velocity) => app.agent(|commands| {
+                commands.insert(LinearVelocity(*velocity));
+                commands.insert(Transform::from_translation(*translation))
+            }),
             None => {
                 let mut commands = app.world_mut().commands();
                 let mut commands = commands.spawn_empty();
@@ -949,14 +924,16 @@ fn test_avoid_obstacles(target : Vec3, obstacles : &[( Vec3 , Option<Vec3>)]) {
     }
 
     app.step();
-    
+
     let agent_translation = app.get::<Transform>(agent).translation;
-    let direction = app.get::<SteeringContext>(agent).resultant_direction().normalize_or_zero();
+    let direction = app
+        .get::<SteeringContext>(agent)
+        .resultant_direction()
+        .normalize_or_zero();
     let straight_line = (target - agent_translation).normalize();
 
     assert_alignment(direction.dot(straight_line));
 }
-
 
 #[test]
 fn test_neighbour_align_velocity() {
@@ -972,7 +949,9 @@ fn test_neighbour_align_velocity() {
     let velocity_source = app.agent(|commands| {
         commands
             .insert(LinearVelocity(target * 2.0))
-            .insert(Transform::from_rotation(Quat::from_rotation_y(-std::f32::consts::FRAC_PI_2)))
+            .insert(Transform::from_rotation(Quat::from_rotation_y(
+                -std::f32::consts::FRAC_PI_2,
+            )))
     });
     app.world_mut()
         .entity_mut(velocity_source)
@@ -1011,25 +990,26 @@ fn test_neighbour_align_heading() {
     assert_alignment(direction.dot(target));
 }
 
+
 #[test]
 fn test_cluster_align_velocity() {
     let mut app = App::test();
     let target = Vec3::X;
     let cluster_id = ClusterId::new(1);
 
-    let agent = app.agent(|commands| {
-        commands.insert(AlignVelocityCluster::from(cluster_id))
-    });
+    let agent = app.agent(|commands| commands.insert(AlignVelocityCluster::from(cluster_id)));
 
     let velocity_source = app.agent(|commands| {
         commands.enter_cluster(cluster_id);
         commands
             .insert(LinearVelocity(target * 2.0))
-            .insert(Transform::from_rotation(Quat::from_rotation_y(-std::f32::consts::FRAC_PI_2)))
+            .insert(Transform::from_rotation(Quat::from_rotation_y(
+                -std::f32::consts::FRAC_PI_2,
+            )))
     });
     app.world_mut()
         .entity_mut(velocity_source)
-        .remove::<(SteeringAgent, MotionKinematic)>();
+        .remove::<(RigidBody, SteeringAgent, MotionKinematic)>();
 
     app.step();
 
@@ -1044,22 +1024,24 @@ fn test_cluster_align_velocity() {
 fn test_cluster_align_heading() {
     let mut app = App::test();
     let target = Vec3::X;
+
     let cluster_id = ClusterId::new(1);
 
-    let agent = app.agent(|commands| {
-        commands.insert(AlignHeadingCluster::from(cluster_id))
-    });
+    let agent1 = app.agent(|commands| commands.insert(AlignHeadingCluster::from(cluster_id)));
 
     app.agent(|commands| {
         commands.enter_cluster(cluster_id);
-        commands.insert(Transform::from_rotation(Quat::from_rotation_y(-std::f32::consts::FRAC_PI_2)))
+        commands.insert(Transform::from_rotation(Quat::from_rotation_y(
+            -std::f32::consts::FRAC_PI_2,
+        )).with_translation(Vec3::splat(10.0)))
     });
 
     app.step();
 
     let direction = app
-        .get::<SteeringContext>(agent)
+        .get::<SteeringContext>(agent1)
         .resultant_direction()
         .normalize_or_zero();
     assert_alignment(direction.dot(target));
 }
+ 

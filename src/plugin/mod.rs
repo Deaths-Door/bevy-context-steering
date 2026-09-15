@@ -86,8 +86,7 @@ impl Plugin for SteeringPlugin {
         // apply behaviours
         app.add_systems(FixedUpdate, behaviour_update.in_set(SteeringBehaviorSet));
 
-        // instead the 2 weights,
-        // ideally one would do it on spawn of coherecluster THEN on the cluster, but im not in the mood
+      
         app.add_observer(
             on_add_component_insert::<
                 Cluster,

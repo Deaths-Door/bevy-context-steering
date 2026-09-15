@@ -3,7 +3,7 @@ use std::ops::{Add, Div, Mul};
 use super::*;
 
 use bevy::ecs::{
-    lifecycle::{Add as AddEvent, HookContext},
+    lifecycle::{Add as AddEvent, HookContext, Remove},
     world::DeferredWorld,
 };
 
@@ -18,7 +18,7 @@ pub(crate) fn on_add_component_insert<A: Bundle, B: Bundle + Default>(
 }
 
 pub(crate) fn on_remove_component_remove<A: Bundle, B: Bundle>(
-    trigger: On<AddEvent, A>,
+    trigger: On<Remove, A>,
     mut commands: Commands,
 ) {
     commands.entity(trigger.entity).remove::<B>();

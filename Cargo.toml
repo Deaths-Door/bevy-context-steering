@@ -2,10 +2,12 @@
 name = "bevy_context_steering"
 version = "0.1.0"
 edition = "2024"
-license = "Apache 2.0"
+license = "Apache-2.0"
 description = "A 3D (and 2D) agent context steering framework for Bevy + Avian3D."
 documentation = "https://docs.rs/bevy_context_steering/latest/bevy_context_steering/"
 repository = "https://github.com/Deaths-Door/bevy-context-steering"
+keywords = ["bevy", "steering", "ai", "gamedev", "context-steering"]
+categories = ["game-development"]
 
 [workspace.dependencies]
 avian3d = { version = "0.7.0", default-features = false, features = [
@@ -25,7 +27,8 @@ debug = ["bevy/bevy_color", "bevy/bevy_gizmos"]
 bevy.workspace = true
 avian3d.workspace = true
 
-bevy_many_relationships = { git = "https://github.com/JViggiani/bevy_many_relationships", rev = "b077b5152e83f8a61c397e321a2df00142b68105" }
+# NOTE: Do not upgrade to 0.3.0 as that uses bevy 0.18, while bevy 0.19 is ued here 
+bevy_many_relationships = { git = "https://github.com/JViggiani/bevy_many_relationships", rev = "b077b5152e83f8a61c397e321a2df00142b68105" , version = "0.2.0"}
 
 
 [dev-dependencies]

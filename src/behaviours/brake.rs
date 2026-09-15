@@ -17,7 +17,6 @@ impl Brake{
         query
             .par_iter_mut()
             .for_each(|mut agent|{
-                // TODO: change the way this works.. 
                 let velocity = **agent.velocity;
                 let interest_direction = velocity;
                 agent.context.set_interest::<Self>(-interest_direction);

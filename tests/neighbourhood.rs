@@ -33,7 +33,6 @@ fn test_multiple_agents_spatial_bounds() {
         .targets()
         .collect::<Vec<_>>();
 
-    // TODO: check why does this shit fail with stepframes but not with step (aka 30frames)
     assert_eq!(neighbours.len(), 1);
     assert!(neighbours.contains(&target_inside));
     assert!(!neighbours.contains(&target_outside));

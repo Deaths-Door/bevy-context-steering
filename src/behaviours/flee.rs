@@ -18,7 +18,7 @@ use super::*;
 ///
 /// ```rust
 /// use bevy::prelude::*;
-/// use bevy_context_steering::{Flee, Falloff};
+/// use bevy_context_steering::prelude::*;
 ///
 /// // 1. Traditional 3D Point Flee with distance attenuation
 /// let point_flee = Flee::new(Vec3::new(10.0, 0.0, 0.0))

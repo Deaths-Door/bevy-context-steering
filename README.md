@@ -1,6 +1,6 @@
 # bevy-context-steering
 
-A 3D  agent context steering framework for Bevy + Avian3D.
+A 3D agent context steering framework for Bevy + Avian3D.
 
 ## What it is
 
@@ -14,27 +14,27 @@ cargo add bevy-context-steering
 
 ## Features
 
-- `debug` — gates `DebugSteeringPlugin` and the interest/danger/velocity visualization.
+- `debug` — enables `SteeringDebugPlugin` and the interest/danger/velocity visualization.
 
 ## Setup
 
 Add the plugins:
 
-```rust
+```rust,ignore
 use bevy_context_steering::prelude::*;
-app.add_plugins((SteeringPlugin, DebugSteeringPlugin));
+app.add_plugins((SteeringPlugin, SteeringDebugPlugin));
 ```
 
-`DebugSteeringPlugin` is optional — gives you visualization of the interest/danger/velocity maps per agent.
+`SteeringDebugPlugin` is optional and provides visualization of the interest/danger/velocity maps per agent.
 
-Mark anything that should steer with `Agent`:
+Mark anything that should steer with `SteeringAgent`:
 
-```rust
+```rust,ignore
 use bevy_context_steering::prelude::*;
-commands.spawn((Agent, /* ... */));
+commands.spawn((SteeringAgent, /* ... */));
 ```
 
-Behaviours only apply to entities carrying `Agent` (and a motion type to move the agent).
+Behaviours only apply to entities carrying `SteeringAgent` (and a motion type to move the agent).
 
 ## Behaviours
 
@@ -51,24 +51,24 @@ Common motion types are implemented out of the box, but movement is customizable
 
 Normal:
 
-```rust
+```rust,ignore
 use bevy_context_steering::prelude::*;
-commands.spawn((Agent, Seek::new(target), /* ... */));
+commands.spawn((SteeringAgent, Seek::new(target), /* ... */));
 ```
 
 Neighbour and obstacle behaviours are added the same way:
 
-```rust
+```rust,ignore
 use bevy_context_steering::prelude::*;
-commands.spawn((Agent, Cohere::new(), /* ... */));
-commands.spawn((Agent, AvoidObstacles::new(), /* ... */));
+commands.spawn((SteeringAgent, Cohere::new(), /* ... */));
+commands.spawn((SteeringAgent, AvoidObstacles::new(), /* ... */));
 ```
 
 Cluster behaviours are also added the same way, but if the agent should belong to a cluster, insert enter/exit-cluster components (otherwise it behaves like any other agent):
 
-```rust
+```rust,ignore
 use bevy_context_steering::prelude::*;
-commands.spawn((Agent, CohereCluster::new(), /* ... */)).enter_cluster(cluster_id);
+commands.spawn((SteeringAgent, CohereCluster::default(), /* ... */)).enter_cluster(cluster_id);
 ```
 
 ## Versions
@@ -76,29 +76,6 @@ commands.spawn((Agent, CohereCluster::new(), /* ... */)).enter_cluster(cluster_i
 | crate | bevy   | avian3d |
 |-------|--------|---------|
 | 0.1.0 | 0.19.0 | 0.7.0   |
-
-## Example
-
-```rust
-use bevy_context_steering::prelude::*;
-
-
-
-// Normal
-commands.spawn((Agent, Seek::new(target)));
-
-// Neighbour
-commands.spawn((Agent, Cohere::new(), Scatter::new(), Align::new()));
-
-// Obstacle
-commands.spawn((Agent, AvoidObstacles::new()));
-
-// Cluster — same as above, plus opt in/out of a cluster explicitly
-commands.spawn((Agent, Cohere::new()));
-commands.entity(agent).exter_cluster(cluster_id);
-commands.entity(agent).exit_cluster(cluster_id);
-
-```
 
 ## License
 
